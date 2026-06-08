@@ -209,10 +209,11 @@ export function StepInterpretation({
     setError(null);
     try {
       const result = await run({ data: { text } });
-      setDraft({
+      const raw: Draft = {
         ...result,
         ingredients: result.ingredients.map((i) => ({ ...i, _id: crypto.randomUUID() })),
-      });
+      };
+      setDraft(normalizeDraft(raw));
       setStatus("ready");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Interpretation failed.");
