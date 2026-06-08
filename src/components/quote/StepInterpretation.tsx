@@ -449,26 +449,39 @@ function splitHighlight(text: string, needle: string | null) {
 
 function EditableRow({
   ing,
+  issues,
   onChange,
   onRemove,
   onHover,
 }: {
   ing: EditableIngredient;
+  issues: Issue[];
   onChange: (p: Partial<EditableIngredient>) => void;
   onRemove: () => void;
   onHover: (s: string | null) => void;
 }) {
   const top = ing.candidates[0];
   const badges: { tone: BadgeTone; label: string }[] = [];
+  const hasError = issues.some((i) => i.severity === "error");
+  const hasWarn = issues.some((i) => i.severity === "warning");
   if (ing.inferred) badges.push({ tone: "lowConfidence", label: "Inferred" });
   if (ing.lowConfidence) badges.push({ tone: "lowConfidence", label: "Low confidence" });
   if (!top || top.manual_check || top.unit_cost_ex_gst == null)
     badges.push({ tone: "manual", label: "Manual price" });
   else badges.push({ tone: "supplier", label: "Supplier matched" });
+  if (hasError) badges.push({ tone: "manual", label: "Needs fix" });
+  else if (hasWarn) badges.push({ tone: "review", label: "Check unit" });
 
   return (
     <div
-      className="rounded-2xl bg-sand-50 border border-sand-150 p-4 space-y-3"
+      className={
+        "rounded-2xl bg-sand-50 border p-4 space-y-3 " +
+        (hasError
+          ? "border-[#7a2218]/40 bg-[#7a2218]/5"
+          : hasWarn
+            ? "border-sunlight/70"
+            : "border-sand-150")
+      }
       onMouseEnter={() => onHover(ing.source ?? null)}
       onMouseLeave={() => onHover(null)}
     >
