@@ -12,10 +12,14 @@ import {
   type InterpretedIngredient,
 } from "@/lib/interpretation.functions";
 
-type EditableIngredient = InterpretedIngredient & { _id: string };
+type EditableIngredient = InterpretedIngredient & {
+  _id: string;
+  _normalizedFrom?: string | null;
+};
 
 type Draft = Omit<InterpretedFormulation, "ingredients"> & {
   ingredients: EditableIngredient[];
+  _packNormalizedFrom?: string | null;
 };
 
 const FORMS = [
@@ -109,6 +113,80 @@ function fmtMg(mg: number): string {
   return `${mg.toFixed(0)} mg`;
 }
 
+/**
+ * Map free-form unit text onto a canonical token (still possibly outside the
+ * accepted UNITS list — conversion happens in normalizeQty).
+ */
+function canonicalUnit(raw: string): string {
+  const u = (raw ?? "").trim();
+  if (!u) return "each";
+  const lower = u.toLowerCase();
+  if (["mcg", "ug", "µg", "μg"].includes(lower)) return "mcg";
+  if (["mg", "milligram", "milligrams"].includes(lower)) return "mg";
+  if (["g", "gm", "gms", "gram", "grams"].includes(lower)) return "g";
+  if (["kg", "kilogram", "kilograms"].includes(lower)) return "kg";
+  if (lower === "ml" || lower === "millilitre" || lower === "milliliter") return "mL";
+  if (lower === "l" || lower === "litre" || lower === "liter") return "L";
+  if (["each", "ea", "unit", "units", "tab", "tabs", "cap", "caps"].includes(lower)) return "each";
+  return u;
+}
+
+function roundTo(n: number, dp: number): number {
+  const f = Math.pow(10, dp);
+  return Math.round(n * f) / f;
+}
+
+/**
+ * Convert any supported mass/volume unit into the canonical app units
+ * (mg | g | mL | each) and pick the most readable scale.
+ *
+ *  - mcg → mg (÷1000)
+ *  - kg  → g  (×1000)
+ *  - L   → mL (×1000)
+ *  - mg ≥ 1000 → g
+ *  - g  < 1    → mg
+ *  - mL ≥ 1000 stays mL (no L in the app vocabulary)
+ */
+function normalizeQty(
+  qty: number,
+  unit: string,
+): { quantity: number; unit: string; changed: boolean; originalLabel: string | null } {
+  const originalLabel = `${qty}${unit}`;
+  const canonical = canonicalUnit(unit);
+  let q = qty;
+  let u = canonical;
+
+  if (u === "mcg") { q = q / 1000; u = "mg"; }
+  else if (u === "kg") { q = q * 1000; u = "g"; }
+  else if (u === "L") { q = q * 1000; u = "mL"; }
+
+  if (u === "mg" && q >= 1000) { q = q / 1000; u = "g"; }
+  else if (u === "g" && q > 0 && q < 1) { q = q * 1000; u = "mg"; }
+
+  const dp = u === "mg" ? 2 : u === "g" ? 4 : u === "mL" ? 2 : 0;
+  q = roundTo(q, dp);
+
+  const changed = u !== unit || q !== qty;
+  return { quantity: q, unit: u, changed, originalLabel: changed ? originalLabel : null };
+}
+
+function normalizeIngredient(ing: EditableIngredient): EditableIngredient {
+  const n = normalizeQty(ing.quantity, ing.unit);
+  if (!n.changed) return ing;
+  return { ...ing, quantity: n.quantity, unit: n.unit, _normalizedFrom: n.originalLabel };
+}
+
+function normalizeDraft(d: Draft): Draft {
+  const n = normalizeQty(d.quantity, d.quantityUnit);
+  return {
+    ...d,
+    quantity: n.quantity,
+    quantityUnit: n.unit,
+    _packNormalizedFrom: n.changed ? n.originalLabel : (d._packNormalizedFrom ?? null),
+    ingredients: d.ingredients.map(normalizeIngredient),
+  };
+}
+
 export function StepInterpretation({
   onNext,
   onBack,
@@ -131,10 +209,11 @@ export function StepInterpretation({
     setError(null);
     try {
       const result = await run({ data: { text } });
-      setDraft({
+      const raw: Draft = {
         ...result,
         ingredients: result.ingredients.map((i) => ({ ...i, _id: crypto.randomUUID() })),
-      });
+      };
+      setDraft(normalizeDraft(raw));
       setStatus("ready");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Interpretation failed.");
@@ -148,15 +227,39 @@ export function StepInterpretation({
   }, []);
 
   const patchDraft = (patch: Partial<Draft>) =>
-    setDraft((d) => (d ? { ...d, ...patch } : d));
+    setDraft((d) => {
+      if (!d) return d;
+      const merged = { ...d, ...patch };
+      if ("quantity" in patch || "quantityUnit" in patch) {
+        const n = normalizeQty(merged.quantity, merged.quantityUnit);
+        return {
+          ...merged,
+          quantity: n.quantity,
+          quantityUnit: n.unit,
+          _packNormalizedFrom: n.changed ? n.originalLabel : null,
+        };
+      }
+      return merged;
+    });
   const patchIngredient = (id: string, patch: Partial<EditableIngredient>) =>
     setDraft((d) =>
       d
         ? {
             ...d,
-            ingredients: d.ingredients.map((i) =>
-              i._id === id ? { ...i, ...patch } : i,
-            ),
+            ingredients: d.ingredients.map((i) => {
+              if (i._id !== id) return i;
+              const merged = { ...i, ...patch };
+              if ("quantity" in patch || "unit" in patch) {
+                const n = normalizeQty(merged.quantity, merged.unit);
+                return {
+                  ...merged,
+                  quantity: n.quantity,
+                  unit: n.unit,
+                  _normalizedFrom: n.changed ? n.originalLabel : null,
+                };
+              }
+              return merged;
+            }),
           }
         : d,
     );
@@ -311,6 +414,11 @@ export function StepInterpretation({
                   </Select>
                 </div>
               </div>
+              {draft._packNormalizedFrom && (
+                <div className="text-xs text-text-tertiary">
+                  Pack normalised from <span className="italic">{draft._packNormalizedFrom}</span> → {draft.quantity}{draft.quantityUnit}.
+                </div>
+              )}
             </>
           )}
         </div>
@@ -537,6 +645,12 @@ function EditableRow({
           />
         </div>
       </div>
+
+      {ing._normalizedFrom && (
+        <div className="text-xs text-text-tertiary">
+          Normalised from <span className="italic">{ing._normalizedFrom}</span> → {ing.quantity}{ing.unit}.
+        </div>
+      )}
 
       {top && (
         <div className="text-xs text-text-secondary flex flex-wrap gap-x-3 gap-y-1">
