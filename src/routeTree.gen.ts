@@ -10,7 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated/route'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedFormulationsRouteImport } from './routes/_authenticated/formulations'
 import { Route as AuthenticatedQuoteNewRouteImport } from './routes/_authenticated/quote.new'
@@ -22,39 +22,42 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedFormulationsRoute = AuthenticatedFormulationsRouteImport.update({
-  id: '/formulations',
-  path: '/formulations',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+const AuthenticatedFormulationsRoute =
+  AuthenticatedFormulationsRouteImport.update({
+    id: '/formulations',
+    path: '/formulations',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedQuoteNewRoute = AuthenticatedQuoteNewRouteImport.update({
   id: '/quote/new',
   path: '/quote/new',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminProductsRoute = AuthenticatedAdminProductsRouteImport.update({
-  id: '/admin/products',
-  path: '/admin/products',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedAdminImportRoute = AuthenticatedAdminImportRouteImport.update({
-  id: '/admin/import',
-  path: '/admin/import',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+const AuthenticatedAdminProductsRoute =
+  AuthenticatedAdminProductsRouteImport.update({
+    id: '/admin/products',
+    path: '/admin/products',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminImportRoute =
+  AuthenticatedAdminImportRouteImport.update({
+    id: '/admin/import',
+    path: '/admin/import',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/auth': typeof AuthRoute
   '/': typeof AuthenticatedIndexRoute
+  '/auth': typeof AuthRoute
   '/formulations': typeof AuthenticatedFormulationsRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
@@ -62,18 +65,18 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
-  '/': typeof AuthenticatedIndexRoute
   '/formulations': typeof AuthenticatedFormulationsRoute
+  '/': typeof AuthenticatedIndexRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/quote/new': typeof AuthenticatedQuoteNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/formulations': typeof AuthenticatedFormulationsRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/quote/new': typeof AuthenticatedQuoteNewRoute
@@ -81,49 +84,34 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/auth'
     | '/'
+    | '/auth'
     | '/formulations'
     | '/admin/import'
     | '/admin/products'
     | '/quote/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/' | '/formulations' | '/admin/import' | '/admin/products' | '/quote/new'
+  to:
+    | '/auth'
+    | '/formulations'
+    | '/'
+    | '/admin/import'
+    | '/admin/products'
+    | '/quote/new'
   id:
     | '__root__'
-    | '/auth'
     | '/_authenticated'
-    | '/_authenticated/'
+    | '/auth'
     | '/_authenticated/formulations'
+    | '/_authenticated/'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/products'
     | '/_authenticated/quote/new'
   fileRoutesById: FileRoutesById
 }
-
-interface AuthenticatedRouteChildren {
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedFormulationsRoute: typeof AuthenticatedFormulationsRoute
-  AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
-  AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
-  AuthenticatedQuoteNewRoute: typeof AuthenticatedQuoteNewRoute
-}
-
-const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedFormulationsRoute: AuthenticatedFormulationsRoute,
-  AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
-  AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
-  AuthenticatedQuoteNewRoute: AuthenticatedQuoteNewRoute,
-}
-
-const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
-
 export interface RootRouteChildren {
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -138,8 +126,8 @@ declare module '@tanstack/react-router' {
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
-      fullPath: ''
-      preLoaderRoute: typeof AuthenticatedRouteImport
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -147,53 +135,62 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/formulations': {
       id: '/_authenticated/formulations'
       path: '/formulations'
       fullPath: '/formulations'
       preLoaderRoute: typeof AuthenticatedFormulationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/quote/new': {
       id: '/_authenticated/quote/new'
       path: '/quote/new'
       fullPath: '/quote/new'
       preLoaderRoute: typeof AuthenticatedQuoteNewRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/products': {
       id: '/_authenticated/admin/products'
       path: '/admin/products'
       fullPath: '/admin/products'
       preLoaderRoute: typeof AuthenticatedAdminProductsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/import': {
       id: '/_authenticated/admin/import'
       path: '/admin/import'
       fullPath: '/admin/import'
       preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedFormulationsRoute: typeof AuthenticatedFormulationsRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
+  AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
+  AuthenticatedQuoteNewRoute: typeof AuthenticatedQuoteNewRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedFormulationsRoute: AuthenticatedFormulationsRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
+  AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
+  AuthenticatedQuoteNewRoute: AuthenticatedQuoteNewRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  AuthenticatedRoute: AuthenticatedRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
