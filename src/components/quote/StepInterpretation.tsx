@@ -338,6 +338,7 @@ export function StepInterpretation({
               <EditableRow
                 key={ing._id}
                 ing={ing}
+                issues={rowIssues.get(ing._id) ?? []}
                 onHover={setActiveSource}
                 onChange={(p) => patchIngredient(ing._id, p)}
                 onRemove={() => removeIngredient(ing._id)}
