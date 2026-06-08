@@ -123,6 +123,7 @@ export async function loadFormulationIntoDraft(row: FormulationRow, opts: { jump
         : [{ tag: "standard", multiplier: 1.0 }],
     notes: row.notes ?? "",
     aiInterpreted: false,
+    packagingAutoMarker: null,
   };
   quoteStore.setState({ draft, step: opts.jumpToStep ?? 3 });
   // Fire-and-forget usage bump.

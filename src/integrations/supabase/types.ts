@@ -42,6 +42,7 @@ export type Database = {
         Row: {
           base_make_minutes: number
           created_at: string
+          default_device_key: string | null
           default_packaging: string | null
           dosage_form: string
           id: string
@@ -52,6 +53,7 @@ export type Database = {
         Insert: {
           base_make_minutes?: number
           created_at?: string
+          default_device_key?: string | null
           default_packaging?: string | null
           dosage_form: string
           id?: string
@@ -62,6 +64,7 @@ export type Database = {
         Update: {
           base_make_minutes?: number
           created_at?: string
+          default_device_key?: string | null
           default_packaging?: string | null
           dosage_form?: string
           id?: string
@@ -187,24 +190,36 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          is_default: boolean
           name: string
           note: string | null
+          pack_key: string | null
+          size_unit: string | null
+          size_value: number | null
           unit_cost_ex_gst: number
         }
         Insert: {
           category: string
           created_at?: string
           id?: string
+          is_default?: boolean
           name: string
           note?: string | null
+          pack_key?: string | null
+          size_unit?: string | null
+          size_value?: number | null
           unit_cost_ex_gst?: number
         }
         Update: {
           category?: string
           created_at?: string
           id?: string
+          is_default?: boolean
           name?: string
           note?: string | null
+          pack_key?: string | null
+          size_unit?: string | null
+          size_value?: number | null
           unit_cost_ex_gst?: number
         }
         Relationships: []

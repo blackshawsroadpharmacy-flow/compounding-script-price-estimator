@@ -292,7 +292,7 @@ export function StepInterpretation({
         : d,
     );
 
-  const accept = () => {
+  const accept = async () => {
     if (!draft) return;
     const bom: BomLine[] = draft.ingredients.map(toBomLine);
     update({
@@ -304,6 +304,8 @@ export function StepInterpretation({
       notes: draft.notes,
       aiInterpreted: true,
     });
+    const { applyDefaultPackaging } = await import("@/lib/packaging");
+    await applyDefaultPackaging(draft.dosageForm, draft.quantity);
     onNext();
   };
 

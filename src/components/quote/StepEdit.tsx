@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, InfoCard } from "@/components/brc/Card";
 import { Button } from "@/components/brc/Button";
 import { Badge, type BadgeTone } from "@/components/brc/Badge";
 import { Input, Label, Select } from "@/components/brc/Field";
 import { useQuote } from "@/state/quote";
-import type { BomLine, IngredientRole } from "@/lib/pricing";
+import type { BomLine, IngredientRole, PackagingLine } from "@/lib/pricing";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  applyDefaultPackaging,
+  markPackagingManual,
+  searchPackaging,
+  type CatalogueRow,
+} from "@/lib/packaging";
 
 interface SupplierMatch {
   id: string;
@@ -63,6 +69,44 @@ export function StepEdit({ onNext, onBack }: { onNext: () => void; onBack: () =>
   const patchLine = (id: string, patch: Partial<BomLine>) =>
     setBom(draft.bom.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const removeLine = (id: string) => setBom(draft.bom.filter((l) => l.id !== id));
+
+  // Auto-populate default packaging when the form or pack quantity changes,
+  // unless the pharmacist has hand-edited packaging (marker cleared).
+  const [missingPackKeys, setMissingPackKeys] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void applyDefaultPackaging(draft.dosageForm, draft.quantity).then((r) => {
+      if (!cancelled && r.applied) setMissingPackKeys(r.missing);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.dosageForm, draft.quantity]);
+
+  const setPackaging = (next: PackagingLine[]) => {
+    markPackagingManual();
+    update({ packaging: next });
+  };
+  const patchPackaging = (id: string, patch: Partial<PackagingLine>) =>
+    setPackaging(draft.packaging.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const removePackaging = (id: string) =>
+    setPackaging(draft.packaging.filter((l) => l.id !== id));
+  const addPackagingRow = (row: CatalogueRow) =>
+    setPackaging([
+      ...draft.packaging,
+      {
+        id: crypto.randomUUID(),
+        name: row.name,
+        category: row.category,
+        unitCostExGst: Number(row.unit_cost_ex_gst ?? 0),
+        quantity: 1,
+      },
+    ]);
+
+  const packagingSubtotal = draft.packaging.reduce(
+    (acc, p) => acc + p.unitCostExGst * p.quantity,
+    0,
+  );
 
   return (
     <Card className="space-y-8">
@@ -136,6 +180,18 @@ export function StepEdit({ onNext, onBack }: { onNext: () => void; onBack: () =>
           </div>
         )}
       </div>
+
+      <PackagingSection
+        lines={draft.packaging}
+        subtotal={packagingSubtotal}
+        missingKeys={missingPackKeys}
+        isCapsuleForm={draft.dosageForm === "capsule"}
+        onPatch={patchPackaging}
+        onRemove={removePackaging}
+        onAdd={addPackagingRow}
+      />
+
+
 
       <div className="space-y-3">
         <Label>Difficulty tags</Label>
@@ -350,6 +406,158 @@ function BomLineRow({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function PackagingSection({
+  lines,
+  subtotal,
+  missingKeys,
+  isCapsuleForm,
+  onPatch,
+  onRemove,
+  onAdd,
+}: {
+  lines: PackagingLine[];
+  subtotal: number;
+  missingKeys: string[];
+  isCapsuleForm: boolean;
+  onPatch: (id: string, patch: Partial<PackagingLine>) => void;
+  onRemove: (id: string) => void;
+  onAdd: (row: CatalogueRow) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<CatalogueRow[]>([]);
+  const [open, setOpen] = useState(false);
+
+  const search = async (q: string) => {
+    setQuery(q);
+    if (q.trim().length === 0) {
+      setMatches([]);
+      return;
+    }
+    setMatches(await searchPackaging(q));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="text-2xl">Packaging &amp; consumables</h3>
+          <p className="text-xs text-text-tertiary mt-1 max-w-xl">
+            Outer container + closure + label{isCapsuleForm ? " — the empty capsule shells already sit in the BOM and scale per capsule, so the two don't overlap" : ""}.
+          </p>
+        </div>
+        <div className="text-sm text-text-secondary">
+          Subtotal <span className="text-bark font-medium tabular-nums">${subtotal.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {missingKeys.length > 0 && (
+        <InfoCard className="text-sm">
+          No catalogue rows for: <span className="text-bark">{missingKeys.join(", ")}</span>. Add one in the Products admin or pick another below.
+        </InfoCard>
+      )}
+
+      {lines.length === 0 ? (
+        <InfoCard className="text-text-secondary text-sm">
+          No packaging yet. Default packaging is normally added when you set the dosage form.
+        </InfoCard>
+      ) : (
+        <div className="space-y-2">
+          {lines.map((line) => (
+            <div
+              key={line.id}
+              className="rounded-2xl bg-sand-50 border border-sand-150 p-3 grid md:grid-cols-12 gap-3 items-end"
+            >
+              <div className="md:col-span-5">
+                <Label>Item</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-bark">{line.name}</span>
+                  <Badge tone="neutral">{line.category}</Badge>
+                </div>
+              </div>
+              <div className="md:col-span-3">
+                <Label>Unit cost (ex-GST)</Label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  value={line.unitCostExGst}
+                  onChange={(e) => onPatch(line.id, { unitCostExGst: Number(e.target.value) })}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Quantity</Label>
+                <Input
+                  type="number"
+                  value={line.quantity}
+                  onChange={(e) => onPatch(line.id, { quantity: Number(e.target.value) })}
+                />
+              </div>
+              <div className="md:col-span-1 text-right tabular-nums text-sm text-bark">
+                ${(line.unitCostExGst * line.quantity).toFixed(2)}
+              </div>
+              <div className="md:col-span-1 text-right">
+                <button
+                  type="button"
+                  onClick={() => onRemove(line.id)}
+                  className="text-xs text-text-tertiary hover:text-bark"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-2xl bg-sand-50 border border-sand-150 p-3 space-y-2">
+        <Label>Add packaging</Label>
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            placeholder="e.g. Ointment jar, dropper, syringe"
+            onChange={(e) => void search(e.target.value)}
+            onFocus={() => setOpen(true)}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? "Hide" : "Browse"}
+          </Button>
+        </div>
+        {open && (
+          <div className="rounded-xl border border-sand-150 bg-white max-h-64 overflow-auto divide-y divide-sand-150">
+            {(matches.length ? matches : []).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  onAdd(m);
+                  setQuery("");
+                  setMatches([]);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-sand-50 flex items-center justify-between gap-3"
+              >
+                <span className="text-sm text-bark">{m.name}</span>
+                <span className="text-xs text-text-tertiary">
+                  {m.category} · ${Number(m.unit_cost_ex_gst).toFixed(2)}
+                </span>
+              </button>
+            ))}
+            {query && matches.length === 0 && (
+              <div className="px-3 py-2 text-xs text-text-tertiary">No matches</div>
+            )}
+            {!query && (
+              <div className="px-3 py-2 text-xs text-text-tertiary">Start typing to search the catalogue.</div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
