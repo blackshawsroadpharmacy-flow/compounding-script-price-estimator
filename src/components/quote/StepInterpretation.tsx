@@ -26,6 +26,89 @@ const UNITS = ["mg", "g", "mL", "each"];
 type IngredientRole = "active" | "base" | "excipient";
 const ROLES: IngredientRole[] = ["active", "base", "excipient"];
 
+const LIQUID_FORMS = new Set(["solution", "suspension", "liquid", "drops", "lotion"]);
+const SEMISOLID_FORMS = new Set(["cream", "ointment", "gel", "paste"]);
+const COUNTED_FORMS = new Set(["capsule", "troche", "pessary"]);
+
+type Severity = "error" | "warning";
+interface Issue { severity: Severity; message: string }
+
+/**
+ * Per-ingredient sanity checks. Errors block the Accept button; warnings are
+ * flagged inline so the pharmacist can override knowingly.
+ */
+function validateIngredient(
+  ing: EditableIngredient,
+  draft: Draft,
+): Issue[] {
+  const issues: Issue[] = [];
+  const form = draft.dosageForm.toLowerCase();
+
+  if (!ing.name.trim()) issues.push({ severity: "error", message: "Name required" });
+  if (!(ing.quantity > 0)) issues.push({ severity: "error", message: "Quantity must be > 0" });
+  if (!UNITS.includes(ing.unit)) issues.push({ severity: "error", message: `Unit "${ing.unit}" not recognised` });
+
+  // Unit / form coherence.
+  if (ing.unit === "each" && !COUNTED_FORMS.has(form) && ing.role !== "base") {
+    issues.push({ severity: "warning", message: `"each" unit unusual for a ${form}` });
+  }
+  if (ing.unit === "mL" && SEMISOLID_FORMS.has(form) && ing.role === "active") {
+    issues.push({ severity: "warning", message: `Active in mL for a ${form} — usually mg` });
+  }
+  if (ing.unit === "g" && ing.role === "active" && ing.quantity >= 10) {
+    issues.push({ severity: "warning", message: `Active dose ${ing.quantity} g looks high — confirm units` });
+  }
+  if (ing.role === "base" && COUNTED_FORMS.has(form) && ing.unit !== "each") {
+    issues.push({ severity: "warning", message: `Base for ${form} usually counted as "each" (shells)` });
+  }
+  if (ing.role === "base" && (LIQUID_FORMS.has(form) || SEMISOLID_FORMS.has(form))
+      && !["g", "mL"].includes(ing.unit)) {
+    issues.push({ severity: "warning", message: `Vehicle for ${form} usually measured in g or mL` });
+  }
+
+  // Strength % cross-check against pack quantity (only meaningful for actives
+  // in a bulk pack: cream/gel/ointment/lotion/solution/suspension).
+  if (ing.role === "active" && ing.strength) {
+    const pct = parsePercent(ing.strength);
+    if (pct != null && (SEMISOLID_FORMS.has(form) || LIQUID_FORMS.has(form))) {
+      const packMass = packMassInMg(draft.quantity, draft.quantityUnit);
+      const expectedMg = packMass != null ? packMass * (pct / 100) : null;
+      const actualMg = toMg(ing.quantity, ing.unit);
+      if (expectedMg != null && actualMg != null && expectedMg > 0) {
+        const drift = Math.abs(actualMg - expectedMg) / expectedMg;
+        if (drift > 0.2) {
+          issues.push({
+            severity: "warning",
+            message: `${pct}% of ${draft.quantity}${draft.quantityUnit} ≈ ${fmtMg(expectedMg)}, got ${fmtMg(actualMg)}`,
+          });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+function parsePercent(s: string): number | null {
+  const m = s.match(/(\d+(?:\.\d+)?)\s*%/);
+  return m ? Number(m[1]) : null;
+}
+function toMg(qty: number, unit: string): number | null {
+  if (unit === "mg") return qty;
+  if (unit === "g") return qty * 1000;
+  if (unit === "mL") return qty * 1000; // assume density 1 (water-like) for the sanity check
+  return null;
+}
+function packMassInMg(qty: number, unit: string): number | null {
+  if (!(qty > 0)) return null;
+  if (unit === "g" || unit === "mL") return qty * 1000;
+  return null;
+}
+function fmtMg(mg: number): string {
+  if (mg >= 1000) return `${(mg / 1000).toFixed(2)} g`;
+  return `${mg.toFixed(0)} mg`;
+}
+
 export function StepInterpretation({
   onNext,
   onBack,
@@ -120,6 +203,42 @@ export function StepInterpretation({
     });
     onNext();
   };
+
+  // Per-row + aggregate validation.
+  const rowIssues = useMemo(() => {
+    if (!draft) return new Map<string, Issue[]>();
+    return new Map(
+      draft.ingredients.map((ing) => [ing._id, validateIngredient(ing, draft)] as const),
+    );
+  }, [draft]);
+
+  const aggregateIssues = useMemo<Issue[]>(() => {
+    if (!draft) return [];
+    const list: Issue[] = [];
+    if (!(draft.quantity > 0)) list.push({ severity: "error", message: "Pack quantity must be > 0" });
+    if (!UNITS.includes(draft.quantityUnit))
+      list.push({ severity: "error", message: `Pack unit "${draft.quantityUnit}" not recognised` });
+    if (draft.ingredients.length === 0)
+      list.push({ severity: "error", message: "At least one ingredient is required" });
+    if (draft.ingredients.length > 0 && !draft.ingredients.some((i) => i.role === "active"))
+      list.push({ severity: "warning", message: "No active ingredient flagged" });
+    if (COUNTED_FORMS.has(draft.dosageForm) && draft.quantityUnit !== "each")
+      list.push({ severity: "warning", message: `${draft.dosageForm} pack usually counted in "each"` });
+    if ((LIQUID_FORMS.has(draft.dosageForm) || SEMISOLID_FORMS.has(draft.dosageForm))
+        && !["g", "mL"].includes(draft.quantityUnit))
+      list.push({ severity: "warning", message: `${draft.dosageForm} pack usually in g or mL` });
+    return list;
+  }, [draft]);
+
+  const allIssues: Issue[] = useMemo(() => {
+    const out = [...aggregateIssues];
+    rowIssues.forEach((issues) => out.push(...issues));
+    return out;
+  }, [aggregateIssues, rowIssues]);
+
+  const errorCount = allIssues.filter((i) => i.severity === "error").length;
+  const warnCount = allIssues.filter((i) => i.severity === "warning").length;
+
 
   return (
     <Card className="space-y-6">
@@ -219,6 +338,7 @@ export function StepInterpretation({
               <EditableRow
                 key={ing._id}
                 ing={ing}
+                issues={rowIssues.get(ing._id) ?? []}
                 onHover={setActiveSource}
                 onChange={(p) => patchIngredient(ing._id, p)}
                 onRemove={() => removeIngredient(ing._id)}
@@ -245,10 +365,20 @@ export function StepInterpretation({
         </div>
       )}
 
-      {status === "ready" && draft && draft.warnings.length > 0 && (
+      {status === "ready" && draft && (errorCount > 0 || warnCount > 0 || draft.warnings.length > 0) && (
         <WarningCard>
+          <div className="text-sm font-medium text-bark mb-1">
+            {errorCount > 0
+              ? `${errorCount} issue${errorCount === 1 ? "" : "s"} to fix before continuing`
+              : `${warnCount} sanity check${warnCount === 1 ? "" : "s"} to review`}
+          </div>
           <ul className="list-disc pl-5 space-y-1 text-sm">
-            {draft.warnings.map((w, i) => <li key={i}>{w}</li>)}
+            {aggregateIssues.map((i, idx) => (
+              <li key={`a-${idx}`} className={i.severity === "error" ? "text-[#7a2218]" : ""}>
+                {i.message}
+              </li>
+            ))}
+            {draft.warnings.map((w, i) => <li key={`m-${i}`}>{w}</li>)}
           </ul>
         </WarningCard>
       )}
@@ -261,7 +391,7 @@ export function StepInterpretation({
           )}
           <Button
             variant="primary"
-            disabled={status !== "ready" || !draft || draft.ingredients.length === 0}
+            disabled={status !== "ready" || !draft || errorCount > 0}
             onClick={accept}
           >
             Accept & continue
@@ -319,26 +449,39 @@ function splitHighlight(text: string, needle: string | null) {
 
 function EditableRow({
   ing,
+  issues,
   onChange,
   onRemove,
   onHover,
 }: {
   ing: EditableIngredient;
+  issues: Issue[];
   onChange: (p: Partial<EditableIngredient>) => void;
   onRemove: () => void;
   onHover: (s: string | null) => void;
 }) {
   const top = ing.candidates[0];
   const badges: { tone: BadgeTone; label: string }[] = [];
+  const hasError = issues.some((i) => i.severity === "error");
+  const hasWarn = issues.some((i) => i.severity === "warning");
   if (ing.inferred) badges.push({ tone: "lowConfidence", label: "Inferred" });
   if (ing.lowConfidence) badges.push({ tone: "lowConfidence", label: "Low confidence" });
   if (!top || top.manual_check || top.unit_cost_ex_gst == null)
     badges.push({ tone: "manual", label: "Manual price" });
   else badges.push({ tone: "supplier", label: "Supplier matched" });
+  if (hasError) badges.push({ tone: "manual", label: "Needs fix" });
+  else if (hasWarn) badges.push({ tone: "review", label: "Check unit" });
 
   return (
     <div
-      className="rounded-2xl bg-sand-50 border border-sand-150 p-4 space-y-3"
+      className={
+        "rounded-2xl bg-sand-50 border p-4 space-y-3 " +
+        (hasError
+          ? "border-[#7a2218]/40 bg-[#7a2218]/5"
+          : hasWarn
+            ? "border-sunlight/70"
+            : "border-sand-150")
+      }
       onMouseEnter={() => onHover(ing.source ?? null)}
       onMouseLeave={() => onHover(null)}
     >
@@ -420,6 +563,23 @@ function EditableRow({
         value={ing.note ?? ""}
         onChange={(e) => onChange({ note: e.target.value || null })}
       />
+
+      {issues.length > 0 && (
+        <ul className="space-y-1 text-xs">
+          {issues.map((i, idx) => (
+            <li
+              key={idx}
+              className={
+                "flex items-start gap-1.5 " +
+                (i.severity === "error" ? "text-[#7a2218]" : "text-text-secondary")
+              }
+            >
+              <span aria-hidden>{i.severity === "error" ? "●" : "▲"}</span>
+              <span>{i.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
