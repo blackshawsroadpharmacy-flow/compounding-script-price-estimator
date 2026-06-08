@@ -150,3 +150,33 @@ export function isAutoPackaging(
   if (!marker || !currentMarker) return false;
   return marker === currentMarker;
 }
+
+function markerFor(form: string, qty: number): string {
+  return `${form}|${qty}`;
+}
+
+/**
+ * Apply default packaging for the current form+quantity if the pharmacist
+ * has not customised packaging. Safe to call repeatedly; no-op when the
+ * pharmacist has manual edits (marker cleared).
+ */
+export async function applyDefaultPackaging(form: string, quantity: number) {
+  const state = quoteStore.getState().draft;
+  const currentMarker = markerFor(form, quantity);
+  const isAuto = state.packaging.length === 0 || state.packagingAutoMarker !== null;
+  if (!isAuto) return { applied: false, missing: [] as string[] };
+  if (state.packagingAutoMarker === currentMarker && state.packaging.length > 0) {
+    return { applied: false, missing: [] as string[] };
+  }
+  const { lines, missing } = await resolveDefaultPackaging(form, quantity);
+  quoteStore.setState({
+    draft: { ...state, packaging: lines, packagingAutoMarker: currentMarker },
+  });
+  return { applied: true, missing };
+}
+
+export function markPackagingManual() {
+  const state = quoteStore.getState();
+  if (state.draft.packagingAutoMarker === null) return;
+  state.update({ packagingAutoMarker: null });
+}
