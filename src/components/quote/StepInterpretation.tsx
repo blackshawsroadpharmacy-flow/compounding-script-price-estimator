@@ -113,6 +113,80 @@ function fmtMg(mg: number): string {
   return `${mg.toFixed(0)} mg`;
 }
 
+/**
+ * Map free-form unit text onto a canonical token (still possibly outside the
+ * accepted UNITS list — conversion happens in normalizeQty).
+ */
+function canonicalUnit(raw: string): string {
+  const u = (raw ?? "").trim();
+  if (!u) return "each";
+  const lower = u.toLowerCase();
+  if (["mcg", "ug", "µg", "μg"].includes(lower)) return "mcg";
+  if (["mg", "milligram", "milligrams"].includes(lower)) return "mg";
+  if (["g", "gm", "gms", "gram", "grams"].includes(lower)) return "g";
+  if (["kg", "kilogram", "kilograms"].includes(lower)) return "kg";
+  if (lower === "ml" || lower === "millilitre" || lower === "milliliter") return "mL";
+  if (lower === "l" || lower === "litre" || lower === "liter") return "L";
+  if (["each", "ea", "unit", "units", "tab", "tabs", "cap", "caps"].includes(lower)) return "each";
+  return u;
+}
+
+function roundTo(n: number, dp: number): number {
+  const f = Math.pow(10, dp);
+  return Math.round(n * f) / f;
+}
+
+/**
+ * Convert any supported mass/volume unit into the canonical app units
+ * (mg | g | mL | each) and pick the most readable scale.
+ *
+ *  - mcg → mg (÷1000)
+ *  - kg  → g  (×1000)
+ *  - L   → mL (×1000)
+ *  - mg ≥ 1000 → g
+ *  - g  < 1    → mg
+ *  - mL ≥ 1000 stays mL (no L in the app vocabulary)
+ */
+function normalizeQty(
+  qty: number,
+  unit: string,
+): { quantity: number; unit: string; changed: boolean; originalLabel: string | null } {
+  const originalLabel = `${qty}${unit}`;
+  const canonical = canonicalUnit(unit);
+  let q = qty;
+  let u = canonical;
+
+  if (u === "mcg") { q = q / 1000; u = "mg"; }
+  else if (u === "kg") { q = q * 1000; u = "g"; }
+  else if (u === "L") { q = q * 1000; u = "mL"; }
+
+  if (u === "mg" && q >= 1000) { q = q / 1000; u = "g"; }
+  else if (u === "g" && q > 0 && q < 1) { q = q * 1000; u = "mg"; }
+
+  const dp = u === "mg" ? 2 : u === "g" ? 4 : u === "mL" ? 2 : 0;
+  q = roundTo(q, dp);
+
+  const changed = u !== unit || q !== qty;
+  return { quantity: q, unit: u, changed, originalLabel: changed ? originalLabel : null };
+}
+
+function normalizeIngredient(ing: EditableIngredient): EditableIngredient {
+  const n = normalizeQty(ing.quantity, ing.unit);
+  if (!n.changed) return ing;
+  return { ...ing, quantity: n.quantity, unit: n.unit, _normalizedFrom: n.originalLabel };
+}
+
+function normalizeDraft(d: Draft): Draft {
+  const n = normalizeQty(d.quantity, d.quantityUnit);
+  return {
+    ...d,
+    quantity: n.quantity,
+    quantityUnit: n.unit,
+    _packNormalizedFrom: n.changed ? n.originalLabel : (d._packNormalizedFrom ?? null),
+    ingredients: d.ingredients.map(normalizeIngredient),
+  };
+}
+
 export function StepInterpretation({
   onNext,
   onBack,
