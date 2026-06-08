@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as FormulationsRouteImport } from './routes/formulations'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as QuoteNewRouteImport } from './routes/quote.new'
 import { Route as AdminProductsRouteImport } from './routes/admin.products'
 
+const FormulationsRoute = FormulationsRouteImport.update({
+  id: '/formulations',
+  path: '/formulations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,36 +37,47 @@ const AdminProductsRoute = AdminProductsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/formulations': typeof FormulationsRoute
   '/admin/products': typeof AdminProductsRoute
   '/quote/new': typeof QuoteNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/formulations': typeof FormulationsRoute
   '/admin/products': typeof AdminProductsRoute
   '/quote/new': typeof QuoteNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/formulations': typeof FormulationsRoute
   '/admin/products': typeof AdminProductsRoute
   '/quote/new': typeof QuoteNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin/products' | '/quote/new'
+  fullPaths: '/' | '/formulations' | '/admin/products' | '/quote/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin/products' | '/quote/new'
-  id: '__root__' | '/' | '/admin/products' | '/quote/new'
+  to: '/' | '/formulations' | '/admin/products' | '/quote/new'
+  id: '__root__' | '/' | '/formulations' | '/admin/products' | '/quote/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FormulationsRoute: typeof FormulationsRoute
   AdminProductsRoute: typeof AdminProductsRoute
   QuoteNewRoute: typeof QuoteNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/formulations': {
+      id: '/formulations'
+      path: '/formulations'
+      fullPath: '/formulations'
+      preLoaderRoute: typeof FormulationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FormulationsRoute: FormulationsRoute,
   AdminProductsRoute: AdminProductsRoute,
   QuoteNewRoute: QuoteNewRoute,
 }

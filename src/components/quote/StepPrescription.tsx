@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Textarea } from "@/components/brc/Field";
 import { Button } from "@/components/brc/Button";
 import { Card } from "@/components/brc/Card";
@@ -16,12 +17,20 @@ export function StepPrescription({ onNext }: { onNext: () => void }) {
   const update = useQuote((s) => s.update);
   return (
     <Card className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-3xl md:text-4xl">Prescription input</h2>
-        <p className="text-text-secondary leading-relaxed max-w-2xl">
-          Enter the doctor's prescription in plain text. The next step drafts a
-          structured formulation that you review before any price is shown.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <h2 className="text-3xl md:text-4xl">Prescription input</h2>
+          <p className="text-text-secondary leading-relaxed max-w-2xl">
+            Enter the doctor's prescription in plain text. The next step drafts a
+            structured formulation that you review before any price is shown.
+          </p>
+        </div>
+        <Link
+          to="/formulations"
+          className="inline-flex items-center rounded-full border border-sand-150 bg-sand-50 px-4 py-2 text-sm text-bark hover:bg-sand-150 transition-colors whitespace-nowrap"
+        >
+          Start from a saved formulation →
+        </Link>
       </div>
 
       <div>

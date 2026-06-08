@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Card, WarningCard } from "@/components/brc/Card";
 import { Button } from "@/components/brc/Button";
 import { Badge } from "@/components/brc/Badge";
-import { Textarea } from "@/components/brc/Field";
+import { Input, Label, Textarea } from "@/components/brc/Field";
 import { useQuote } from "@/state/quote";
 import { calculatePrice, formatMoney } from "@/lib/pricing";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
+import { findSimilarFormulation, saveFormulation, updateFormulation } from "@/lib/formulations";
 
 export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
   const draft = useQuote((s) => s.draft);
@@ -14,6 +16,55 @@ export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: ()
   const { settings } = useSettings();
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [savingFormulation, setSavingFormulation] = useState(false);
+  const [savedFormulationId, setSavedFormulationId] = useState<string | null>(null);
+  const [formulationName, setFormulationName] = useState("");
+  const [showSaveFormulation, setShowSaveFormulation] = useState(false);
+
+  const openSaveFormulation = () => {
+    const guess = draft.bom
+      .filter((l) => l.role === "active")
+      .map((l) => `${l.name}${l.quantity ? ` ${l.quantity}${l.unit}` : ""}`)
+      .filter(Boolean)
+      .join(", ");
+    const suffix = draft.dosageForm ? ` ${draft.dosageForm}` : "";
+    const qty = draft.quantity ? ` ${draft.quantity}${draft.quantityUnit}` : "";
+    setFormulationName(guess ? `${guess}${suffix}${qty}` : draft.prescriptionText.slice(0, 80));
+    setShowSaveFormulation(true);
+  };
+
+  const saveAsFormulation = async () => {
+    if (!formulationName.trim()) return toast.error("Give it a name first");
+    setSavingFormulation(true);
+    try {
+      const existing = await findSimilarFormulation(formulationName, draft.dosageForm);
+      if (existing) {
+        const ok = confirm(
+          `A formulation called "${existing.name}" (${existing.dosage_form}) already exists. ` +
+            `Update it with the current BOM as a new version?`,
+        );
+        if (ok) {
+          await updateFormulation(existing.id, {
+            name: formulationName,
+            draft,
+            source: "pharmacist",
+          });
+          setSavedFormulationId(existing.id);
+          toast.success("Existing formulation updated");
+          setShowSaveFormulation(false);
+          return;
+        }
+      }
+      const id = await saveFormulation({ name: formulationName, draft, source: "pharmacist" });
+      setSavedFormulationId(id);
+      toast.success("Saved to formulation library");
+      setShowSaveFormulation(false);
+    } catch (e) {
+      toast.error("Could not save: " + (e as Error).message);
+    } finally {
+      setSavingFormulation(false);
+    }
+  };
 
   const breakdown = useMemo(
     () =>
@@ -130,11 +181,44 @@ export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: ()
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      {savedFormulationId && (
+        <div className="rounded-2xl bg-forest/10 border border-forest/30 text-forest p-4 text-sm">
+          Added to the formulation library.
+        </div>
+      )}
+
+      {showSaveFormulation && (
+        <div className="rounded-2xl bg-sand-50 border border-sand-150 p-5 space-y-3">
+          <div className="space-y-1">
+            <h3 className="text-lg">Save as formulation</h3>
+            <p className="text-xs text-text-tertiary">
+              The current BOM, dosage form, quantity, difficulty tags and notes will be saved for re-use.
+              If a similar name and form already exists, you'll be asked to update it instead of duplicating.
+            </p>
+          </div>
+          <div>
+            <Label>Name</Label>
+            <Input value={formulationName} onChange={(e) => setFormulationName(e.target.value)} />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setShowSaveFormulation(false)}>Cancel</Button>
+            <Button variant="primary" onClick={saveAsFormulation} disabled={savingFormulation}>
+              {savingFormulation ? "Saving…" : "Save to library"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <Button variant="secondary" onClick={onBack}>Back</Button>
-        <Button variant="accent" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save final quote"}
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={openSaveFormulation} disabled={showSaveFormulation}>
+            Save as formulation
+          </Button>
+          <Button variant="accent" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save final quote"}
+          </Button>
+        </div>
       </div>
     </Card>
   );
