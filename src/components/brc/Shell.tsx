@@ -13,6 +13,7 @@ export function SiteHeader() {
           <Link to="/quote/new" className="hover:text-bark transition-colors">New quote</Link>
           <Link to="/formulations" className="hover:text-bark transition-colors">Library</Link>
           <Link to="/admin/products" className="hover:text-bark transition-colors">Products</Link>
+          <Link to="/admin/import" className="hover:text-bark transition-colors">Import</Link>
         </nav>
 
         <Link
