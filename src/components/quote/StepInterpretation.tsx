@@ -646,6 +646,12 @@ function EditableRow({
         </div>
       </div>
 
+      {ing._normalizedFrom && (
+        <div className="text-xs text-text-tertiary">
+          Normalised from <span className="italic">{ing._normalizedFrom}</span> → {ing.quantity}{ing.unit}.
+        </div>
+      )}
+
       {top && (
         <div className="text-xs text-text-secondary flex flex-wrap gap-x-3 gap-y-1">
           <span>→ {top.ingredient}</span>
