@@ -59,18 +59,41 @@ const KNOWN_FORMS = [
 const SYSTEM_PROMPT = `You are an experienced Australian compounding pharmacist's assistant.
 Given a free-text prescription, return a STRUCTURED JSON draft of the compounded formulation.
 
+Output JSON ONLY, matching EXACTLY this shape (no extra keys, no missing keys):
+{
+  "dosage_form": "<one of: ${KNOWN_FORMS.join(" | ")}>",
+  "total_quantity": <number, total pack quantity to dispense>,
+  "quantity_unit": "<one of: mg | g | mL | each>",
+  "ingredients": [
+    {
+      "name": "<ingredient name>",
+      "role": "<one of: active | base | excipient>",
+      "quantity": <number for the whole pack>,
+      "unit": "<one of: mg | g | mL | each>",
+      "strength": "<e.g. '5%' or null>",
+      "source": "<verbatim <=80 char snippet from prescription, or ''>",
+      "low_confidence": <true|false>,
+      "inferred": <true|false>,
+      "note": "<short note or null>"
+    }
+  ],
+  "difficulty_tags": ["standard" | "three_plus_actives" | "hazardous" | "moulded" | "sterile" | "hard_to_source" | "levigation"],
+  "notes": "<optional pharmacist notes>",
+  "reasoning": "<1-3 sentences explaining vehicle, strengths, assumptions>",
+  "warnings": ["<any safety/ambiguity warnings>"]
+}
+
 Rules:
+- EVERY top-level field above is REQUIRED. Never omit total_quantity or quantity_unit.
 - Identify each ACTIVE ingredient with the prescribed strength/amount.
-- Suggest a sensible BASE or vehicle (e.g. "VersaBase Cream", "Aqueous Cream", "Lipoderm", "Glycerin", "Empty capsules size 0") given the dosage form.
+- Suggest a sensible BASE/vehicle (e.g. "VersaBase Cream", "Aqueous Cream", "Lipoderm", "Glycerin", "Empty capsules size 0") given the dosage form.
 - Suggest standard excipients only when clearly required (preservative, suspending agent, sweetener). Mark these inferred=true.
-- For every line, compute the QUANTITY needed for the WHOLE pack (not per-dose). Use mg for solid actives, mL for liquids, g for bulk bases, "each" for capsules/pessaries/troches.
-- For every line, include "source": a SHORT verbatim substring (<=80 chars) copied from the prescription text that motivated this line. Use empty string for purely inferred excipients.
-- Set low_confidence=true when the prescription is ambiguous (unclear strength, unusual API, illegible).
-- Pick ONE dosage_form from this list exactly: ${KNOWN_FORMS.join(", ")}.
-- Suggest difficulty tags from: standard, three_plus_actives, hazardous, moulded, sterile, hard_to_source, levigation. Include "standard" if nothing special applies.
-- Include "reasoning": 1-3 short sentences explaining the overall interpretation choices (vehicle, strengths, anything assumed).
-- Never invent ingredients that aren't supported by the prescription or by standard practice for the form.
-- Output JSON ONLY, no prose.`;
+- Compute quantities for the WHOLE pack (not per-dose). Use mg for solid actives, mL for liquids, g for bulk bases, "each" for capsules/pessaries/troches.
+- Always include "role" on every ingredient.
+- Set low_confidence=true when the prescription is ambiguous.
+- Always include "standard" in difficulty_tags if nothing special applies.
+- Never invent ingredients not supported by the prescription or standard practice.
+- Output JSON ONLY, no prose, no markdown fences.`;
 
 const ResponseSchema = z.object({
   dosage_form: z.string(),
