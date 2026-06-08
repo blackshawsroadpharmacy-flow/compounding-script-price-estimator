@@ -12,10 +12,14 @@ import {
   type InterpretedIngredient,
 } from "@/lib/interpretation.functions";
 
-type EditableIngredient = InterpretedIngredient & { _id: string };
+type EditableIngredient = InterpretedIngredient & {
+  _id: string;
+  _normalizedFrom?: string | null;
+};
 
 type Draft = Omit<InterpretedFormulation, "ingredients"> & {
   ingredients: EditableIngredient[];
+  _packNormalizedFrom?: string | null;
 };
 
 const FORMS = [
