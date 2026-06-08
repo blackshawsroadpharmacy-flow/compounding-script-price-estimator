@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, InfoCard } from "@/components/brc/Card";
 import { Button } from "@/components/brc/Button";
 import { Badge, type BadgeTone } from "@/components/brc/Badge";
 import { Input, Label, Select } from "@/components/brc/Field";
 import { useQuote } from "@/state/quote";
-import type { BomLine, IngredientRole } from "@/lib/pricing";
+import type { BomLine, IngredientRole, PackagingLine } from "@/lib/pricing";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  applyDefaultPackaging,
+  markPackagingManual,
+  searchPackaging,
+  type CatalogueRow,
+} from "@/lib/packaging";
 
 interface SupplierMatch {
   id: string;
