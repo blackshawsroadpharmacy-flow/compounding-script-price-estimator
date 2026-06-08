@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Step 2: AI prescription interpretation.
@@ -447,6 +448,7 @@ async function assembleUnitDosePack(
 }
 
 export const interpretPrescription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => InputSchema.parse(data))
   .handler(async ({ data }): Promise<InterpretedFormulation> => {
     const draft = await callGateway(data.text);
