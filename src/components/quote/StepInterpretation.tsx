@@ -414,6 +414,11 @@ export function StepInterpretation({
                   </Select>
                 </div>
               </div>
+              {draft._packNormalizedFrom && (
+                <div className="text-xs text-text-tertiary">
+                  Pack normalised from <span className="italic">{draft._packNormalizedFrom}</span> → {draft.quantity}{draft.quantityUnit}.
+                </div>
+              )}
             </>
           )}
         </div>
