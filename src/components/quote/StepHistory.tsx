@@ -130,7 +130,7 @@ export function StepHistory({ onNext, onBack }: { onNext: () => void; onBack: ()
       {mostRecent && (
         <div className="text-sm text-text-secondary">
           Most recent comparable: <span className="text-bark">{mostRecent.description}</span>{" "}
-          on {mostRecent.dispensed_date} · {formatMoney(Number(mostRecent.price))}
+          on {mostRecent.dispensed_date} · script <span className="font-mono text-xs">{mostRecent.script_number ?? "—"}</span> · {formatMoney(Number(mostRecent.price))}
         </div>
       )}
 
