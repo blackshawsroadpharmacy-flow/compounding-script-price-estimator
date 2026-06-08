@@ -29,6 +29,19 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
   const confidenceTone =
     breakdown.confidence === "high" ? "matched" : breakdown.confidence === "medium" ? "review" : "manual";
 
+  const UNIT_DOSE = new Set(["capsule", "troche", "pessary"]);
+  const perUnit =
+    UNIT_DOSE.has(draft.dosageForm) && draft.quantityUnit === "each" && draft.quantity > 0
+      ? {
+          count: draft.quantity,
+          unitLabel: draft.dosageForm,
+          costPerUnit: breakdown.ingredientsTotal / draft.quantity,
+          pricePerUnit: breakdown.priceIncGst / draft.quantity,
+        }
+      : null;
+
+
+
   return (
     <Card className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-6">
@@ -45,6 +58,11 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
           <div className="font-serif text-5xl md:text-6xl text-bark tabular-nums">
             {formatMoney(breakdown.priceIncGst)}
           </div>
+          {perUnit && (
+            <div className="mt-1 text-sm text-text-secondary tabular-nums">
+              {formatMoney(perUnit.pricePerUnit)} per {perUnit.unitLabel} ({perUnit.count} units)
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-end gap-2">
             <Badge tone={confidenceTone}>
               Confidence: {breakdown.confidence}
@@ -53,6 +71,7 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
           </div>
         </div>
       </div>
+
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="rounded-2xl bg-sand-50 border border-sand-150 p-5">
@@ -73,6 +92,13 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
               <span>Subtotal</span>
               <span className="tabular-nums">{formatMoney(breakdown.ingredientsTotal)}</span>
             </li>
+            {perUnit && (
+              <li className="flex items-center justify-between text-text-secondary">
+                <span>per {perUnit.unitLabel}</span>
+                <span className="tabular-nums">{formatMoney(perUnit.costPerUnit)}</span>
+              </li>
+            )}
+
           </ul>
         </div>
 
