@@ -181,6 +181,18 @@ export function StepEdit({ onNext, onBack }: { onNext: () => void; onBack: () =>
         )}
       </div>
 
+      <PackagingSection
+        lines={draft.packaging}
+        subtotal={packagingSubtotal}
+        missingKeys={missingPackKeys}
+        isCapsuleForm={draft.dosageForm === "capsule"}
+        onPatch={patchPackaging}
+        onRemove={removePackaging}
+        onAdd={addPackagingRow}
+      />
+
+
+
       <div className="space-y-3">
         <Label>Difficulty tags</Label>
         <div className="flex flex-wrap gap-2">
