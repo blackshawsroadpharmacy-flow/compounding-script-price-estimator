@@ -227,15 +227,39 @@ export function StepInterpretation({
   }, []);
 
   const patchDraft = (patch: Partial<Draft>) =>
-    setDraft((d) => (d ? { ...d, ...patch } : d));
+    setDraft((d) => {
+      if (!d) return d;
+      const merged = { ...d, ...patch };
+      if ("quantity" in patch || "quantityUnit" in patch) {
+        const n = normalizeQty(merged.quantity, merged.quantityUnit);
+        return {
+          ...merged,
+          quantity: n.quantity,
+          quantityUnit: n.unit,
+          _packNormalizedFrom: n.changed ? n.originalLabel : null,
+        };
+      }
+      return merged;
+    });
   const patchIngredient = (id: string, patch: Partial<EditableIngredient>) =>
     setDraft((d) =>
       d
         ? {
             ...d,
-            ingredients: d.ingredients.map((i) =>
-              i._id === id ? { ...i, ...patch } : i,
-            ),
+            ingredients: d.ingredients.map((i) => {
+              if (i._id !== id) return i;
+              const merged = { ...i, ...patch };
+              if ("quantity" in patch || "unit" in patch) {
+                const n = normalizeQty(merged.quantity, merged.unit);
+                return {
+                  ...merged,
+                  quantity: n.quantity,
+                  unit: n.unit,
+                  _normalizedFrom: n.changed ? n.originalLabel : null,
+                };
+              }
+              return merged;
+            }),
           }
         : d,
     );
