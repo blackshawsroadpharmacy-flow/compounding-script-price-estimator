@@ -37,8 +37,8 @@ export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: ()
       .from("quotes")
       .insert({
         prescription_text: draft.prescriptionText,
-        formulation: draft as unknown as Record<string, unknown>,
-        breakdown: breakdown as unknown as Record<string, unknown>,
+        formulation: JSON.parse(JSON.stringify(draft)),
+        breakdown: JSON.parse(JSON.stringify(breakdown)),
         dosage_form: draft.dosageForm,
         quantity: draft.quantity,
         price_ex_gst: Number(breakdown.priceExGst.toFixed(2)),
