@@ -70,6 +70,44 @@ export function StepEdit({ onNext, onBack }: { onNext: () => void; onBack: () =>
     setBom(draft.bom.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const removeLine = (id: string) => setBom(draft.bom.filter((l) => l.id !== id));
 
+  // Auto-populate default packaging when the form or pack quantity changes,
+  // unless the pharmacist has hand-edited packaging (marker cleared).
+  const [missingPackKeys, setMissingPackKeys] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void applyDefaultPackaging(draft.dosageForm, draft.quantity).then((r) => {
+      if (!cancelled && r.applied) setMissingPackKeys(r.missing);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.dosageForm, draft.quantity]);
+
+  const setPackaging = (next: PackagingLine[]) => {
+    markPackagingManual();
+    update({ packaging: next });
+  };
+  const patchPackaging = (id: string, patch: Partial<PackagingLine>) =>
+    setPackaging(draft.packaging.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const removePackaging = (id: string) =>
+    setPackaging(draft.packaging.filter((l) => l.id !== id));
+  const addPackagingRow = (row: CatalogueRow) =>
+    setPackaging([
+      ...draft.packaging,
+      {
+        id: crypto.randomUUID(),
+        name: row.name,
+        category: row.category,
+        unitCostExGst: Number(row.unit_cost_ex_gst ?? 0),
+        quantity: 1,
+      },
+    ]);
+
+  const packagingSubtotal = draft.packaging.reduce(
+    (acc, p) => acc + p.unitCostExGst * p.quantity,
+    0,
+  );
+
   return (
     <Card className="space-y-8">
       <div className="space-y-2">
