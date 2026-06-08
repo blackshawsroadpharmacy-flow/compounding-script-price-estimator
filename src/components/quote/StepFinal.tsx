@@ -181,11 +181,44 @@ export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: ()
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      {savedFormulationId && (
+        <div className="rounded-2xl bg-forest/10 border border-forest/30 text-forest p-4 text-sm">
+          Added to the formulation library.
+        </div>
+      )}
+
+      {showSaveFormulation && (
+        <div className="rounded-2xl bg-sand-50 border border-sand-150 p-5 space-y-3">
+          <div className="space-y-1">
+            <h3 className="text-lg">Save as formulation</h3>
+            <p className="text-xs text-text-tertiary">
+              The current BOM, dosage form, quantity, difficulty tags and notes will be saved for re-use.
+              If a similar name and form already exists, you'll be asked to update it instead of duplicating.
+            </p>
+          </div>
+          <div>
+            <Label>Name</Label>
+            <Input value={formulationName} onChange={(e) => setFormulationName(e.target.value)} />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setShowSaveFormulation(false)}>Cancel</Button>
+            <Button variant="primary" onClick={saveAsFormulation} disabled={savingFormulation}>
+              {savingFormulation ? "Saving…" : "Save to library"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <Button variant="secondary" onClick={onBack}>Back</Button>
-        <Button variant="accent" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save final quote"}
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={openSaveFormulation} disabled={showSaveFormulation}>
+            Save as formulation
+          </Button>
+          <Button variant="accent" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save final quote"}
+          </Button>
+        </div>
       </div>
     </Card>
   );
