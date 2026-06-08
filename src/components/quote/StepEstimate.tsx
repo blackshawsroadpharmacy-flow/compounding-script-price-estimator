@@ -58,6 +58,11 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
           <div className="font-serif text-5xl md:text-6xl text-bark tabular-nums">
             {formatMoney(breakdown.priceIncGst)}
           </div>
+          {perUnit && (
+            <div className="mt-1 text-sm text-text-secondary tabular-nums">
+              {formatMoney(perUnit.pricePerUnit)} per {perUnit.unitLabel} ({perUnit.count} units)
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-end gap-2">
             <Badge tone={confidenceTone}>
               Confidence: {breakdown.confidence}
@@ -66,6 +71,7 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
           </div>
         </div>
       </div>
+
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="rounded-2xl bg-sand-50 border border-sand-150 p-5">
