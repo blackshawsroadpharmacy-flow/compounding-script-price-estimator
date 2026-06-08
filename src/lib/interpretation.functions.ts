@@ -164,11 +164,49 @@ async function callGateway(text: string): Promise<z.infer<typeof ResponseSchema>
     if (!m) throw new Error("AI returned non-JSON response.");
     parsed = JSON.parse(m[0]);
   }
-  const ok = ResponseSchema.safeParse(parsed);
+  const coerced = coerceDraft(parsed);
+  const ok = ResponseSchema.safeParse(coerced);
   if (!ok.success) {
     throw new Error(`AI response failed validation: ${ok.error.message.slice(0, 300)}`);
   }
   return Object.assign(ok.data, { __raw: content });
+}
+
+/**
+ * Models occasionally rename fields (quantity vs total_quantity, unit vs
+ * quantity_unit, ingredient_role vs role) or omit role on a base/excipient.
+ * Map common aliases and infer safe defaults so validation succeeds.
+ */
+function coerceDraft(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as Record<string, any>;
+
+  const totalQty =
+    r.total_quantity ?? r.pack_quantity ?? r.totalQuantity ?? r.pack_size ?? r.quantity;
+  const qtyUnit =
+    r.quantity_unit ?? r.pack_unit ?? r.quantityUnit ?? r.unit ?? r.uom;
+
+  const ingredients = Array.isArray(r.ingredients) ? r.ingredients : [];
+  const mapped = ingredients.map((i: any, idx: number) => {
+    const role = (i.role ?? i.ingredient_role ?? i.type ?? (idx === 0 ? "active" : "excipient"))
+      .toString().toLowerCase();
+    const normRole = ["active", "base", "excipient"].includes(role) ? role : "excipient";
+    return {
+      ...i,
+      role: normRole,
+      name: i.name ?? i.ingredient ?? "",
+      quantity: typeof i.quantity === "number" ? i.quantity : Number(i.quantity ?? i.amount ?? 0),
+      unit: i.unit ?? i.uom ?? "mg",
+    };
+  });
+
+  return {
+    ...r,
+    dosage_form: r.dosage_form ?? r.dosageForm ?? r.form ?? "cream",
+    total_quantity: typeof totalQty === "number" ? totalQty : Number(totalQty ?? 0),
+    quantity_unit: qtyUnit ?? "g",
+    ingredients: mapped,
+  };
 }
 
 async function findCandidates(name: string) {
