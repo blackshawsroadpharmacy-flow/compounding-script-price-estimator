@@ -64,9 +64,11 @@ Rules:
 - Suggest a sensible BASE or vehicle (e.g. "VersaBase Cream", "Aqueous Cream", "Lipoderm", "Glycerin", "Empty capsules size 0") given the dosage form.
 - Suggest standard excipients only when clearly required (preservative, suspending agent, sweetener). Mark these inferred=true.
 - For every line, compute the QUANTITY needed for the WHOLE pack (not per-dose). Use mg for solid actives, mL for liquids, g for bulk bases, "each" for capsules/pessaries/troches.
-- Set lowConfidence=true when the prescription is ambiguous (unclear strength, unusual API, illegible).
+- For every line, include "source": a SHORT verbatim substring (<=80 chars) copied from the prescription text that motivated this line. Use empty string for purely inferred excipients.
+- Set low_confidence=true when the prescription is ambiguous (unclear strength, unusual API, illegible).
 - Pick ONE dosage_form from this list exactly: ${KNOWN_FORMS.join(", ")}.
 - Suggest difficulty tags from: standard, three_plus_actives, hazardous, moulded, sterile, hard_to_source, levigation. Include "standard" if nothing special applies.
+- Include "reasoning": 1-3 short sentences explaining the overall interpretation choices (vehicle, strengths, anything assumed).
 - Never invent ingredients that aren't supported by the prescription or by standard practice for the form.
 - Output JSON ONLY, no prose.`;
 
@@ -80,12 +82,14 @@ const ResponseSchema = z.object({
     quantity: z.number().nonnegative(),
     unit: z.string(),
     strength: z.string().nullable().optional(),
+    source: z.string().nullable().optional(),
     low_confidence: z.boolean().optional(),
     inferred: z.boolean().optional(),
     note: z.string().nullable().optional(),
   })).min(1),
   difficulty_tags: z.array(z.string()).default([]),
   notes: z.string().default(""),
+  reasoning: z.string().default(""),
   warnings: z.array(z.string()).default([]),
 });
 
