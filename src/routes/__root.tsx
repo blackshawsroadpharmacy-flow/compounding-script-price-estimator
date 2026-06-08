@@ -90,6 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Price with context. Review before quoting. Built for professional pharmacist judgement.",
       },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "Burke Road Compounding Price Estimator" },
+      { name: "description", content: "A compounding pharmacy tool to estimate prescription prices using AI and historical data." },
+      { property: "og:description", content: "A compounding pharmacy tool to estimate prescription prices using AI and historical data." },
+      { name: "twitter:description", content: "A compounding pharmacy tool to estimate prescription prices using AI and historical data." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/XixyHjEfWVVN7GXjGCOwme461iv2/social-images/social-1780881417542-Burke_Road_Compound_Pharmacy_Logo_-_FINAL_Square.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/XixyHjEfWVVN7GXjGCOwme461iv2/social-images/social-1780881417542-Burke_Road_Compound_Pharmacy_Logo_-_FINAL_Square.webp" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
