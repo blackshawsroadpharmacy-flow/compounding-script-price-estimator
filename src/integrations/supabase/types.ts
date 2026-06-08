@@ -14,7 +14,249 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      difficulty_rules: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          multiplier: number
+          tag: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          multiplier?: number
+          tag: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          multiplier?: number
+          tag?: string
+        }
+        Relationships: []
+      }
+      form_rules: {
+        Row: {
+          base_make_minutes: number
+          created_at: string
+          default_packaging: string | null
+          dosage_form: string
+          id: string
+          notes: string | null
+          parsing_convention: string
+          variable_minutes_per_unit: number
+        }
+        Insert: {
+          base_make_minutes?: number
+          created_at?: string
+          default_packaging?: string | null
+          dosage_form: string
+          id?: string
+          notes?: string | null
+          parsing_convention: string
+          variable_minutes_per_unit?: number
+        }
+        Update: {
+          base_make_minutes?: number
+          created_at?: string
+          default_packaging?: string | null
+          dosage_form?: string
+          id?: string
+          notes?: string | null
+          parsing_convention?: string
+          variable_minutes_per_unit?: number
+        }
+        Relationships: []
+      }
+      ingredients_master: {
+        Row: {
+          canonical_unit: string | null
+          created_at: string
+          gst_divisor: number | null
+          id: string
+          ingredient: string
+          manual_check: boolean
+          match_key: string | null
+          normalised_qty: number | null
+          note: string | null
+          pack_price: number | null
+          pack_size: string | null
+          status: string | null
+          supplier: string | null
+          supplier_code: string | null
+          unit_cost_ex_gst: number | null
+          unit_cost_listed: number | null
+        }
+        Insert: {
+          canonical_unit?: string | null
+          created_at?: string
+          gst_divisor?: number | null
+          id?: string
+          ingredient: string
+          manual_check?: boolean
+          match_key?: string | null
+          normalised_qty?: number | null
+          note?: string | null
+          pack_price?: number | null
+          pack_size?: string | null
+          status?: string | null
+          supplier?: string | null
+          supplier_code?: string | null
+          unit_cost_ex_gst?: number | null
+          unit_cost_listed?: number | null
+        }
+        Update: {
+          canonical_unit?: string | null
+          created_at?: string
+          gst_divisor?: number | null
+          id?: string
+          ingredient?: string
+          manual_check?: boolean
+          match_key?: string | null
+          normalised_qty?: number | null
+          note?: string | null
+          pack_price?: number | null
+          pack_size?: string | null
+          status?: string | null
+          supplier?: string | null
+          supplier_code?: string | null
+          unit_cost_ex_gst?: number | null
+          unit_cost_listed?: number | null
+        }
+        Relationships: []
+      }
+      packaging_catalogue: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          note: string | null
+          unit_cost_ex_gst: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          note?: string | null
+          unit_cost_ex_gst?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          note?: string | null
+          unit_cost_ex_gst?: number
+        }
+        Relationships: []
+      }
+      price_history: {
+        Row: {
+          created_at: string
+          description: string
+          dispensed_date: string | null
+          dosage_form: string | null
+          id: string
+          pos_item_description: string | null
+          price: number
+          quantity: number | null
+          script_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          dispensed_date?: string | null
+          dosage_form?: string | null
+          id?: string
+          pos_item_description?: string | null
+          price: number
+          quantity?: number | null
+          script_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          dispensed_date?: string | null
+          dosage_form?: string | null
+          id?: string
+          pos_item_description?: string | null
+          price?: number
+          quantity?: number | null
+          script_number?: string | null
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          breakdown: Json | null
+          created_at: string
+          dosage_form: string | null
+          formulation: Json | null
+          id: string
+          notes: string | null
+          overrides: Json | null
+          prescription_text: string | null
+          price_ex_gst: number | null
+          price_inc_gst: number | null
+          quantity: number | null
+          status: string
+          taxable: boolean
+        }
+        Insert: {
+          breakdown?: Json | null
+          created_at?: string
+          dosage_form?: string | null
+          formulation?: Json | null
+          id?: string
+          notes?: string | null
+          overrides?: Json | null
+          prescription_text?: string | null
+          price_ex_gst?: number | null
+          price_inc_gst?: number | null
+          quantity?: number | null
+          status?: string
+          taxable?: boolean
+        }
+        Update: {
+          breakdown?: Json | null
+          created_at?: string
+          dosage_form?: string | null
+          formulation?: Json | null
+          id?: string
+          notes?: string | null
+          overrides?: Json | null
+          prescription_text?: string | null
+          price_ex_gst?: number | null
+          price_inc_gst?: number | null
+          quantity?: number | null
+          status?: string
+          taxable?: boolean
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
