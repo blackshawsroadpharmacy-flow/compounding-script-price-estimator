@@ -204,6 +204,42 @@ export function StepInterpretation({
     onNext();
   };
 
+  // Per-row + aggregate validation.
+  const rowIssues = useMemo(() => {
+    if (!draft) return new Map<string, Issue[]>();
+    return new Map(
+      draft.ingredients.map((ing) => [ing._id, validateIngredient(ing, draft)] as const),
+    );
+  }, [draft]);
+
+  const aggregateIssues = useMemo<Issue[]>(() => {
+    if (!draft) return [];
+    const list: Issue[] = [];
+    if (!(draft.quantity > 0)) list.push({ severity: "error", message: "Pack quantity must be > 0" });
+    if (!UNITS.includes(draft.quantityUnit))
+      list.push({ severity: "error", message: `Pack unit "${draft.quantityUnit}" not recognised` });
+    if (draft.ingredients.length === 0)
+      list.push({ severity: "error", message: "At least one ingredient is required" });
+    if (draft.ingredients.length > 0 && !draft.ingredients.some((i) => i.role === "active"))
+      list.push({ severity: "warning", message: "No active ingredient flagged" });
+    if (COUNTED_FORMS.has(draft.dosageForm) && draft.quantityUnit !== "each")
+      list.push({ severity: "warning", message: `${draft.dosageForm} pack usually counted in "each"` });
+    if ((LIQUID_FORMS.has(draft.dosageForm) || SEMISOLID_FORMS.has(draft.dosageForm))
+        && !["g", "mL"].includes(draft.quantityUnit))
+      list.push({ severity: "warning", message: `${draft.dosageForm} pack usually in g or mL` });
+    return list;
+  }, [draft]);
+
+  const allIssues: Issue[] = useMemo(() => {
+    const out = [...aggregateIssues];
+    rowIssues.forEach((issues) => out.push(...issues));
+    return out;
+  }, [aggregateIssues, rowIssues]);
+
+  const errorCount = allIssues.filter((i) => i.severity === "error").length;
+  const warnCount = allIssues.filter((i) => i.severity === "warning").length;
+
+
   return (
     <Card className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
