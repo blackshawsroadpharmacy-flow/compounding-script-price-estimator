@@ -20,6 +20,8 @@ export interface InterpretedIngredient {
   lowConfidence: boolean;
   inferred: boolean;
   note?: string | null;
+  /** Verbatim snippet from the prescription that motivated this line. */
+  source?: string | null;
   // Top supplier matches (cheapest valid first).
   candidates: {
     id: string;
@@ -39,6 +41,7 @@ export interface InterpretedFormulation {
   ingredients: InterpretedIngredient[];
   difficultyTags: { tag: string; multiplier: number; reason?: string }[];
   notes: string;
+  reasoning: string;
   warnings: string[];
   overallConfidence: "high" | "medium" | "low";
   raw: string; // raw model JSON for debugging / audit
