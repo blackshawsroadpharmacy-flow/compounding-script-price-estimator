@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface HistoryRow {
   id: string;
   dispensed_date: string | null;
+  script_number: string | null;
   description: string;
   pos_item_description: string | null;
   price: number;
@@ -44,7 +45,7 @@ export function StepHistory({ onNext, onBack }: { onNext: () => void; onBack: ()
       setLoading(true);
       let q = supabase
         .from("price_history")
-        .select("id,dispensed_date,description,pos_item_description,price,dosage_form,quantity")
+        .select("id,dispensed_date,script_number,description,pos_item_description,price,dosage_form,quantity")
         .order("dispensed_date", { ascending: false })
         .limit(120);
       if (draft.dosageForm) q = q.eq("dosage_form", draft.dosageForm);
@@ -129,7 +130,7 @@ export function StepHistory({ onNext, onBack }: { onNext: () => void; onBack: ()
       {mostRecent && (
         <div className="text-sm text-text-secondary">
           Most recent comparable: <span className="text-bark">{mostRecent.description}</span>{" "}
-          on {mostRecent.dispensed_date} · {formatMoney(Number(mostRecent.price))}
+          on {mostRecent.dispensed_date} · script <span className="font-mono text-xs">{mostRecent.script_number ?? "—"}</span> · {formatMoney(Number(mostRecent.price))}
         </div>
       )}
 
@@ -138,6 +139,7 @@ export function StepHistory({ onNext, onBack }: { onNext: () => void; onBack: ()
           <thead className="bg-sand-100 text-left text-xs uppercase tracking-wide text-text-secondary">
             <tr>
               <th className="px-4 py-3 font-medium">Date</th>
+              <th className="px-4 py-3 font-medium">Script #</th>
               <th className="px-4 py-3 font-medium">Formulation</th>
               <th className="px-4 py-3 font-medium text-right">Qty</th>
               <th className="px-4 py-3 font-medium text-right">Price</th>
@@ -146,14 +148,15 @@ export function StepHistory({ onNext, onBack }: { onNext: () => void; onBack: ()
           </thead>
           <tbody className="divide-y divide-sand-150">
             {loading && (
-              <tr><td colSpan={5} className="px-4 py-6 text-text-tertiary">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-text-tertiary">Loading…</td></tr>
             )}
             {!loading && scored.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-text-tertiary">No comparable history.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-text-tertiary">No comparable history.</td></tr>
             )}
             {scored.map((r) => (
               <tr key={r.id} className="hover:bg-sand-100/40">
                 <td className="px-4 py-3 text-text-secondary">{r.dispensed_date}</td>
+                <td className="px-4 py-3 text-text-secondary tabular-nums font-mono text-xs">{r.script_number ?? "—"}</td>
                 <td className="px-4 py-3 text-bark">{r.description}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-text-secondary">{r.quantity ?? "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatMoney(Number(r.price))}</td>

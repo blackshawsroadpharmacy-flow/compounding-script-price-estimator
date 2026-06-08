@@ -13,6 +13,7 @@ import { Route as FormulationsRouteImport } from './routes/formulations'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as QuoteNewRouteImport } from './routes/quote.new'
 import { Route as AdminProductsRouteImport } from './routes/admin.products'
+import { Route as AdminImportRouteImport } from './routes/admin.import'
 
 const FormulationsRoute = FormulationsRouteImport.update({
   id: '/formulations',
@@ -34,16 +35,23 @@ const AdminProductsRoute = AdminProductsRouteImport.update({
   path: '/admin/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminImportRoute = AdminImportRouteImport.update({
+  id: '/admin/import',
+  path: '/admin/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/formulations': typeof FormulationsRoute
+  '/admin/import': typeof AdminImportRoute
   '/admin/products': typeof AdminProductsRoute
   '/quote/new': typeof QuoteNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/formulations': typeof FormulationsRoute
+  '/admin/import': typeof AdminImportRoute
   '/admin/products': typeof AdminProductsRoute
   '/quote/new': typeof QuoteNewRoute
 }
@@ -51,20 +59,33 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/formulations': typeof FormulationsRoute
+  '/admin/import': typeof AdminImportRoute
   '/admin/products': typeof AdminProductsRoute
   '/quote/new': typeof QuoteNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/formulations' | '/admin/products' | '/quote/new'
+  fullPaths:
+    | '/'
+    | '/formulations'
+    | '/admin/import'
+    | '/admin/products'
+    | '/quote/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/formulations' | '/admin/products' | '/quote/new'
-  id: '__root__' | '/' | '/formulations' | '/admin/products' | '/quote/new'
+  to: '/' | '/formulations' | '/admin/import' | '/admin/products' | '/quote/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/formulations'
+    | '/admin/import'
+    | '/admin/products'
+    | '/quote/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FormulationsRoute: typeof FormulationsRoute
+  AdminImportRoute: typeof AdminImportRoute
   AdminProductsRoute: typeof AdminProductsRoute
   QuoteNewRoute: typeof QuoteNewRoute
 }
@@ -99,25 +120,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/import': {
+      id: '/admin/import'
+      path: '/admin/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FormulationsRoute: FormulationsRoute,
+  AdminImportRoute: AdminImportRoute,
   AdminProductsRoute: AdminProductsRoute,
   QuoteNewRoute: QuoteNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

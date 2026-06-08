@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS price_history_script_number_unique ON public.price_history(script_number) WHERE script_number IS NOT NULL;
