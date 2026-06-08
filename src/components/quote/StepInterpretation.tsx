@@ -26,6 +26,89 @@ const UNITS = ["mg", "g", "mL", "each"];
 type IngredientRole = "active" | "base" | "excipient";
 const ROLES: IngredientRole[] = ["active", "base", "excipient"];
 
+const LIQUID_FORMS = new Set(["solution", "suspension", "liquid", "drops", "lotion"]);
+const SEMISOLID_FORMS = new Set(["cream", "ointment", "gel", "paste"]);
+const COUNTED_FORMS = new Set(["capsule", "troche", "pessary"]);
+
+type Severity = "error" | "warning";
+interface Issue { severity: Severity; message: string }
+
+/**
+ * Per-ingredient sanity checks. Errors block the Accept button; warnings are
+ * flagged inline so the pharmacist can override knowingly.
+ */
+function validateIngredient(
+  ing: EditableIngredient,
+  draft: Draft,
+): Issue[] {
+  const issues: Issue[] = [];
+  const form = draft.dosageForm.toLowerCase();
+
+  if (!ing.name.trim()) issues.push({ severity: "error", message: "Name required" });
+  if (!(ing.quantity > 0)) issues.push({ severity: "error", message: "Quantity must be > 0" });
+  if (!UNITS.includes(ing.unit)) issues.push({ severity: "error", message: `Unit "${ing.unit}" not recognised` });
+
+  // Unit / form coherence.
+  if (ing.unit === "each" && !COUNTED_FORMS.has(form) && ing.role !== "base") {
+    issues.push({ severity: "warning", message: `"each" unit unusual for a ${form}` });
+  }
+  if (ing.unit === "mL" && SEMISOLID_FORMS.has(form) && ing.role === "active") {
+    issues.push({ severity: "warning", message: `Active in mL for a ${form} — usually mg` });
+  }
+  if (ing.unit === "g" && ing.role === "active" && ing.quantity >= 10) {
+    issues.push({ severity: "warning", message: `Active dose ${ing.quantity} g looks high — confirm units` });
+  }
+  if (ing.role === "base" && COUNTED_FORMS.has(form) && ing.unit !== "each") {
+    issues.push({ severity: "warning", message: `Base for ${form} usually counted as "each" (shells)` });
+  }
+  if (ing.role === "base" && (LIQUID_FORMS.has(form) || SEMISOLID_FORMS.has(form))
+      && !["g", "mL"].includes(ing.unit)) {
+    issues.push({ severity: "warning", message: `Vehicle for ${form} usually measured in g or mL` });
+  }
+
+  // Strength % cross-check against pack quantity (only meaningful for actives
+  // in a bulk pack: cream/gel/ointment/lotion/solution/suspension).
+  if (ing.role === "active" && ing.strength) {
+    const pct = parsePercent(ing.strength);
+    if (pct != null && (SEMISOLID_FORMS.has(form) || LIQUID_FORMS.has(form))) {
+      const packMass = packMassInMg(draft.quantity, draft.quantityUnit);
+      const expectedMg = packMass != null ? packMass * (pct / 100) : null;
+      const actualMg = toMg(ing.quantity, ing.unit);
+      if (expectedMg != null && actualMg != null && expectedMg > 0) {
+        const drift = Math.abs(actualMg - expectedMg) / expectedMg;
+        if (drift > 0.2) {
+          issues.push({
+            severity: "warning",
+            message: `${pct}% of ${draft.quantity}${draft.quantityUnit} ≈ ${fmtMg(expectedMg)}, got ${fmtMg(actualMg)}`,
+          });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+function parsePercent(s: string): number | null {
+  const m = s.match(/(\d+(?:\.\d+)?)\s*%/);
+  return m ? Number(m[1]) : null;
+}
+function toMg(qty: number, unit: string): number | null {
+  if (unit === "mg") return qty;
+  if (unit === "g") return qty * 1000;
+  if (unit === "mL") return qty * 1000; // assume density 1 (water-like) for the sanity check
+  return null;
+}
+function packMassInMg(qty: number, unit: string): number | null {
+  if (!(qty > 0)) return null;
+  if (unit === "g" || unit === "mL") return qty * 1000;
+  return null;
+}
+function fmtMg(mg: number): string {
+  if (mg >= 1000) return `${(mg / 1000).toFixed(2)} g`;
+  return `${mg.toFixed(0)} mg`;
+}
+
 export function StepInterpretation({
   onNext,
   onBack,
