@@ -9,7 +9,20 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
  * formulation, then grounds each ingredient against the pharmacy's
  * `ingredients_master` so the pharmacist's review in Step 3 starts with
  * supplier matches and ex-GST unit costs already attached.
+ *
+ * For unit-dose forms (capsule/troche/pessary) the draft is augmented with
+ * the empty shell and a diluent filler so each unit is fully costed.
  */
+
+export interface IngredientCandidate {
+  id: string;
+  ingredient: string;
+  supplier: string | null;
+  pack_size: string | null;
+  canonical_unit: string | null;
+  unit_cost_ex_gst: number | null;
+  manual_check: boolean;
+}
 
 export interface InterpretedIngredient {
   name: string;
@@ -22,29 +35,24 @@ export interface InterpretedIngredient {
   note?: string | null;
   /** Verbatim snippet from the prescription that motivated this line. */
   source?: string | null;
-  // Top supplier matches (cheapest valid first).
-  candidates: {
-    id: string;
-    ingredient: string;
-    supplier: string | null;
-    pack_size: string | null;
-    canonical_unit: string | null;
-    unit_cost_ex_gst: number | null;
-    manual_check: boolean;
-  }[];
+  /** mg of this ingredient per unit dose (capsule/troche). Audit only. */
+  strengthMgPerUnit?: number | null;
+  candidates: IngredientCandidate[];
 }
 
 export interface InterpretedFormulation {
   dosageForm: string;
   quantity: number;
   quantityUnit: string;
+  /** Number of capsules/troches/pessaries when unit-dose, else null. */
+  unitCount?: number | null;
   ingredients: InterpretedIngredient[];
   difficultyTags: { tag: string; multiplier: number; reason?: string }[];
   notes: string;
   reasoning: string;
   warnings: string[];
   overallConfidence: "high" | "medium" | "low";
-  raw: string; // raw model JSON for debugging / audit
+  raw: string;
 }
 
 const InputSchema = z.object({
@@ -55,6 +63,12 @@ const KNOWN_FORMS = [
   "capsule", "cream", "ointment", "gel", "paste", "lotion",
   "solution", "suspension", "liquid", "drops", "troche", "pessary",
 ];
+const UNIT_DOSE_FORMS = new Set(["capsule", "troche", "pessary"]);
+const CAPSULE_SIZES = ["000", "00", "0", "1", "2", "3", "4"] as const;
+/** Default mg of fill per capsule shell, including active mass. */
+const CAPSULE_FILL_MG: Record<string, number> = {
+  "000": 1000, "00": 700, "0": 400, "1": 300, "2": 220, "3": 180, "4": 140,
+};
 
 const SYSTEM_PROMPT = `You are an experienced Australian compounding pharmacist's assistant.
 Given a free-text prescription, return a STRUCTURED JSON draft of the compounded formulation.
@@ -64,13 +78,14 @@ Output JSON ONLY, matching EXACTLY this shape (no extra keys, no missing keys):
   "dosage_form": "<one of: ${KNOWN_FORMS.join(" | ")}>",
   "total_quantity": <number, total pack quantity to dispense>,
   "quantity_unit": "<one of: mg | g | mL | each>",
+  "unit_count": <integer count of dose units when dosage_form is capsule/troche/pessary, else null>,
   "ingredients": [
     {
       "name": "<ingredient name>",
       "role": "<one of: active | base | excipient>",
-      "quantity": <number for the whole pack>,
+      "quantity": <number for the WHOLE pack>,
       "unit": "<one of: mg | g | mL | each>",
-      "strength": "<e.g. '5%' or null>",
+      "strength": "<e.g. '1 mg' or '5%' or null>",
       "source": "<verbatim <=80 char snippet from prescription, or ''>",
       "low_confidence": <true|false>,
       "inferred": <true|false>,
@@ -79,26 +94,23 @@ Output JSON ONLY, matching EXACTLY this shape (no extra keys, no missing keys):
   ],
   "difficulty_tags": ["standard" | "three_plus_actives" | "hazardous" | "moulded" | "sterile" | "hard_to_source" | "levigation"],
   "notes": "<optional pharmacist notes>",
-  "reasoning": "<1-3 sentences explaining vehicle, strengths, assumptions>",
+  "reasoning": "<1-3 sentences>",
   "warnings": ["<any safety/ambiguity warnings>"]
 }
 
 Rules:
 - EVERY top-level field above is REQUIRED. Never omit total_quantity or quantity_unit.
-- Identify each ACTIVE ingredient with the prescribed strength/amount.
-- Suggest a sensible BASE/vehicle (e.g. "VersaBase Cream", "Aqueous Cream", "Lipoderm", "Glycerin", "Empty capsules size 0") given the dosage form.
-- Suggest standard excipients only when clearly required (preservative, suspending agent, sweetener). Mark these inferred=true.
-- Compute quantities for the WHOLE pack (not per-dose). Use mg for solid actives, mL for liquids, g for bulk bases, "each" for capsules/pessaries/troches.
-- Always include "role" on every ingredient.
-- Set low_confidence=true when the prescription is ambiguous.
+- For CAPSULES/TROCHES/PESSARIES: set quantity_unit to "each" and total_quantity to the number of units. Set unit_count to the same number. For each ACTIVE put the WHOLE-PACK mass (strength_per_unit_mg × unit_count) in "quantity" with unit "mg". DO NOT list capsule shells or filler — they are added automatically downstream.
+- For creams/gels/ointments/lotions/solutions: quantity_unit g or mL, total_quantity is the pack size, ingredient quantities are for the whole pack.
+- Always include "role" on every ingredient and "strength" where stated.
 - Always include "standard" in difficulty_tags if nothing special applies.
-- Never invent ingredients not supported by the prescription or standard practice.
 - Output JSON ONLY, no prose, no markdown fences.`;
 
 const ResponseSchema = z.object({
   dosage_form: z.string(),
   total_quantity: z.number().positive(),
   quantity_unit: z.string(),
+  unit_count: z.number().nullable().optional(),
   ingredients: z.array(z.object({
     name: z.string(),
     role: z.enum(["active", "base", "excipient"]),
@@ -159,7 +171,6 @@ async function callGateway(text: string): Promise<z.infer<typeof ResponseSchema>
   try {
     parsed = JSON.parse(content);
   } catch {
-    // Some models wrap JSON in code fences; try to recover.
     const m = content.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("AI returned non-JSON response.");
     parsed = JSON.parse(m[0]);
@@ -172,11 +183,6 @@ async function callGateway(text: string): Promise<z.infer<typeof ResponseSchema>
   return Object.assign(ok.data, { __raw: content });
 }
 
-/**
- * Models occasionally rename fields (quantity vs total_quantity, unit vs
- * quantity_unit, ingredient_role vs role) or omit role on a base/excipient.
- * Map common aliases and infer safe defaults so validation succeeds.
- */
 function coerceDraft(raw: unknown): unknown {
   if (!raw || typeof raw !== "object") return raw;
   const r = raw as Record<string, any>;
@@ -205,23 +211,239 @@ function coerceDraft(raw: unknown): unknown {
     dosage_form: r.dosage_form ?? r.dosageForm ?? r.form ?? "cream",
     total_quantity: typeof totalQty === "number" ? totalQty : Number(totalQty ?? 0),
     quantity_unit: qtyUnit ?? "g",
+    unit_count: r.unit_count ?? r.unitCount ?? null,
     ingredients: mapped,
   };
 }
 
-async function findCandidates(name: string) {
-  const trimmed = name.trim();
-  if (trimmed.length < 2) return [];
-  // Split into salient tokens (drop common excipient noise) and search on the
-  // first meaningful word so "Gabapentin powder USP" still matches "Gabapentin".
-  const head = trimmed.split(/[\s,()\/]+/)[0];
+// ──────────────────────────────────────────────────────────────────────────────
+// Matcher
+
+const STOPWORDS = new Set([
+  "powder", "usp", "bp", "ph", "eur", "ep", "nf", "jp", "ar", "lr",
+  "cream", "ointment", "gel", "paste", "lotion", "solution", "suspension",
+  "liquid", "drops", "capsule", "capsules", "troche", "troches", "pessary",
+  "pessaries", "tablet", "tablets", "for", "with", "and", "the", "of",
+  "grade", "anhydrous", "hydrate", "monohydrate", "micronised", "micronized",
+  "base", "vehicle", "qs", "ad", "to", "mg", "g", "ml", "mcg", "ug",
+]);
+
+const CAPSULE_SHELL_RE = /\b(empty\s+capsule|capsule\s+shell|gelatin\s+capsule|hpmc\s+capsule|veg(?:etarian)?\s*caps?|hard\s+capsule)\b/i;
+
+function extractCapsuleSize(text: string): typeof CAPSULE_SIZES[number] | null {
+  // Match "size 0", "#00", "no. 1", "size: 000" (longest first)
+  for (const s of CAPSULE_SIZES) {
+    const re = new RegExp(`(?:size|#|no\\.?)\\s*${s}\\b|\\bsize\\s+${s}\\b|\\b${s}\\s*(?:size|cap)`, "i");
+    if (re.test(text)) return s;
+  }
+  return null;
+}
+
+function parseUnitCount(text: string): number | null {
+  // "x 100", "× 100", "qty 100", "100 caps", "Dispense 100"
+  const patterns = [
+    /[x×]\s*(\d{1,4})\b/i,
+    /\b(?:qty|quantity|disp(?:ense)?|mitte|mit)\s*[:#]?\s*(\d{1,4})\b/i,
+    /\b(\d{1,4})\s*(?:cap(?:s|sules)?|troches?|pessar(?:y|ies))\b/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const n = Number(m[1]);
+      if (n > 0 && n <= 5000) return n;
+    }
+  }
+  return null;
+}
+
+function tokens(name: string): string[] {
+  return name
+    .toLowerCase()
+    .split(/[^a-z0-9%]+/i)
+    .filter((t) => t.length >= 3 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
+}
+
+async function fetchByMatchKey(matchKey: string): Promise<IngredientCandidate[]> {
   const { data } = await supabaseAdmin
     .from("ingredients_master")
     .select("id,ingredient,supplier,pack_size,canonical_unit,unit_cost_ex_gst,manual_check")
-    .ilike("ingredient", `%${head}%`)
+    .eq("match_key", matchKey)
     .order("unit_cost_ex_gst", { ascending: true, nullsFirst: false })
     .limit(5);
-  return data ?? [];
+  return (data ?? []) as IngredientCandidate[];
+}
+
+/**
+ * Token-aware candidate search. Ranks ingredients_master rows by how many of
+ * the salient tokens from `name` are contained in `ingredient`, then by cost.
+ */
+async function findCandidates(name: string): Promise<IngredientCandidate[]> {
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return [];
+
+  // Capsule shell short-circuit.
+  if (CAPSULE_SHELL_RE.test(trimmed)) {
+    const size = extractCapsuleSize(trimmed) ?? "0";
+    const rows = await fetchByMatchKey(`capsule_shell_size_${size}`);
+    if (rows.length) return rows;
+  }
+
+  const toks = tokens(trimmed);
+  if (toks.length === 0) {
+    // Fall back to literal name search.
+    const { data } = await supabaseAdmin
+      .from("ingredients_master")
+      .select("id,ingredient,supplier,pack_size,canonical_unit,unit_cost_ex_gst,manual_check")
+      .ilike("ingredient", `%${trimmed}%`)
+      .order("unit_cost_ex_gst", { ascending: true, nullsFirst: false })
+      .limit(5);
+    return (data ?? []) as IngredientCandidate[];
+  }
+
+  // Query the longest (most specific) token first; widen with shorter tokens
+  // if it returns nothing.
+  const ordered = [...toks].sort((a, b) => b.length - a.length);
+  let rows: IngredientCandidate[] = [];
+  for (const tk of ordered) {
+    const { data } = await supabaseAdmin
+      .from("ingredients_master")
+      .select("id,ingredient,supplier,pack_size,canonical_unit,unit_cost_ex_gst,manual_check")
+      .ilike("ingredient", `%${tk}%`)
+      .limit(40);
+    if (data && data.length) {
+      rows = data as IngredientCandidate[];
+      break;
+    }
+  }
+  if (rows.length === 0) return [];
+
+  // Rank: more matched tokens wins; ties broken by cheaper unit cost.
+  const scored = rows.map((r) => {
+    const hay = r.ingredient.toLowerCase();
+    const matches = toks.reduce((n, t) => (hay.includes(t) ? n + 1 : n), 0);
+    return { r, matches };
+  });
+  scored.sort((a, b) => {
+    if (b.matches !== a.matches) return b.matches - a.matches;
+    const ac = a.r.unit_cost_ex_gst ?? Number.POSITIVE_INFINITY;
+    const bc = b.r.unit_cost_ex_gst ?? Number.POSITIVE_INFINITY;
+    return ac - bc;
+  });
+  return scored.slice(0, 5).map((s) => s.r);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Capsule pack assembly
+
+function toMg(qty: number, unit: string): number {
+  if (unit === "mg") return qty;
+  if (unit === "g") return qty * 1000;
+  if (unit === "mcg" || unit === "ug" || unit === "µg") return qty / 1000;
+  return 0;
+}
+
+function parseStrengthMg(strength: string | null | undefined): number | null {
+  if (!strength) return null;
+  const m = strength.match(/(\d+(?:\.\d+)?)\s*(mg|g|mcg|ug|µg)\b/i);
+  if (!m) return null;
+  return toMg(Number(m[1]), m[2].toLowerCase());
+}
+
+/**
+ * For capsule/troche/pessary, ensure the BOM has a shell line and a filler
+ * line that scale with unit count. Active masses are converted to whole-pack
+ * mg. Mutates `out` in place and returns it.
+ */
+async function assembleUnitDosePack(
+  rxText: string,
+  draft: z.infer<typeof ResponseSchema>,
+  grounded: InterpretedIngredient[],
+  warnings: string[],
+): Promise<{ ingredients: InterpretedIngredient[]; unitCount: number; shellSize: string }> {
+  // Resolve unit count.
+  let unitCount =
+    (draft.unit_count && Number(draft.unit_count) > 0 ? Number(draft.unit_count) : null) ??
+    (draft.quantity_unit?.toLowerCase() === "each" ? draft.total_quantity : null) ??
+    parseUnitCount(rxText) ??
+    null;
+  if (!unitCount || unitCount <= 0) {
+    unitCount = 30;
+    warnings.push("Unit count could not be detected — defaulted to 30 capsules");
+  }
+
+  const shellSize = extractCapsuleSize(rxText) ?? "0";
+
+  // Normalise active rows: ensure whole-pack mg quantity, and stamp strengthMgPerUnit.
+  const ingredients: InterpretedIngredient[] = grounded
+    .filter((ing) => {
+      // Drop AI-supplied shell/filler lines — we add canonical ones below.
+      if (CAPSULE_SHELL_RE.test(ing.name)) return false;
+      const n = ing.name.toLowerCase();
+      if (ing.role !== "active" && (n.includes("avicel") || n.includes("microcrystalline") || n.includes("lactose") || n.includes("filler") || n.includes("diluent"))) {
+        return false;
+      }
+      return true;
+    })
+    .map((ing) => {
+      if (ing.role !== "active") return ing;
+      const strengthMg = parseStrengthMg(ing.strength ?? null);
+      const qtyMg = ing.unit === "each" ? (strengthMg ?? 0) * unitCount! : toMg(ing.quantity, ing.unit);
+      const perUnit = strengthMg ?? (qtyMg > 0 ? qtyMg / unitCount! : null);
+      return {
+        ...ing,
+        quantity: qtyMg > 0 ? qtyMg : ing.quantity,
+        unit: "mg",
+        strengthMgPerUnit: perUnit,
+      };
+    });
+
+  // Total active mg per single capsule (to compute filler).
+  const activeMgPerUnit = ingredients
+    .filter((i) => i.role === "active")
+    .reduce((s, i) => s + (i.strengthMgPerUnit ?? (i.quantity / unitCount!)), 0);
+
+  // Shell line.
+  const shellCandidates = await fetchByMatchKey(`capsule_shell_size_${shellSize}`);
+  ingredients.push({
+    name: `Empty Capsule Shell Size ${shellSize}`,
+    role: "base",
+    quantity: unitCount,
+    unit: "each",
+    strength: null,
+    lowConfidence: false,
+    inferred: true,
+    note: `Auto-added: ${unitCount} × size-${shellSize} shell`,
+    source: null,
+    strengthMgPerUnit: null,
+    candidates: shellCandidates,
+  });
+  if (shellCandidates.length === 0) {
+    warnings.push(`No price found for capsule_shell_size_${shellSize} — add to ingredients_master`);
+  }
+
+  // Filler line.
+  const fillTarget = CAPSULE_FILL_MG[shellSize] ?? 400;
+  const fillerPerUnit = Math.max(0, fillTarget - activeMgPerUnit);
+  const fillerTotalMg = Math.round(fillerPerUnit * unitCount);
+  const fillerCandidates = await fetchByMatchKey("capsule_filler_avicel");
+  ingredients.push({
+    name: "Microcrystalline Cellulose (Avicel) — Capsule Filler",
+    role: "excipient",
+    quantity: fillerTotalMg,
+    unit: "mg",
+    strength: null,
+    lowConfidence: false,
+    inferred: true,
+    note: `Auto-added: ${Math.round(fillerPerUnit)} mg diluent × ${unitCount} caps (size-${shellSize} fill ${fillTarget} mg − ${Math.round(activeMgPerUnit)} mg active)`,
+    source: null,
+    strengthMgPerUnit: fillerPerUnit,
+    candidates: fillerCandidates,
+  });
+  if (fillerCandidates.length === 0) {
+    warnings.push("No price found for capsule_filler_avicel — add to ingredients_master");
+  }
+
+  return { ingredients, unitCount, shellSize };
 }
 
 export const interpretPrescription = createServerFn({ method: "POST" })
@@ -231,13 +453,12 @@ export const interpretPrescription = createServerFn({ method: "POST" })
 
     const warnings: string[] = [...(draft.warnings ?? [])];
 
-    // Normalise dosage form to known list if possible.
     const dosageForm = KNOWN_FORMS.includes(draft.dosage_form.toLowerCase())
       ? draft.dosage_form.toLowerCase()
       : (warnings.push(`Unrecognised dosage form "${draft.dosage_form}", defaulted to cream`), "cream");
 
-    // Ground every ingredient against ingredients_master.
-    const ingredients: InterpretedIngredient[] = await Promise.all(
+    // Ground every AI ingredient against ingredients_master.
+    let grounded: InterpretedIngredient[] = await Promise.all(
       draft.ingredients.map(async (ing) => {
         const candidates = await findCandidates(ing.name);
         const lowConfidence = Boolean(ing.low_confidence) || candidates.length === 0;
@@ -254,10 +475,23 @@ export const interpretPrescription = createServerFn({ method: "POST" })
           lowConfidence,
           inferred: Boolean(ing.inferred),
           note: ing.note ?? null,
+          strengthMgPerUnit: null,
           candidates,
         };
       }),
     );
+
+    let unitCount: number | null = null;
+    let packQty = draft.total_quantity;
+    let packUnit = draft.quantity_unit;
+
+    if (UNIT_DOSE_FORMS.has(dosageForm)) {
+      const assembled = await assembleUnitDosePack(data.text, draft, grounded, warnings);
+      grounded = assembled.ingredients;
+      unitCount = assembled.unitCount;
+      packQty = unitCount;
+      packUnit = "each";
+    }
 
     const difficultyTags = (draft.difficulty_tags.length ? draft.difficulty_tags : ["standard"])
       .filter((t) => t in DIFFICULTY_MULTIPLIERS)
@@ -266,16 +500,19 @@ export const interpretPrescription = createServerFn({ method: "POST" })
       difficultyTags.push({ tag: "standard", multiplier: 1.0 });
     }
 
-    const anyManual = ingredients.some((i) => i.candidates.length === 0 || i.candidates.every((c) => c.manual_check || c.unit_cost_ex_gst == null));
-    const anyLow = ingredients.some((i) => i.lowConfidence);
+    const anyManual = grounded.some(
+      (i) => i.candidates.length === 0 || i.candidates.every((c) => c.manual_check || c.unit_cost_ex_gst == null),
+    );
+    const anyLow = grounded.some((i) => i.lowConfidence);
     const overallConfidence: InterpretedFormulation["overallConfidence"] =
       anyManual ? "low" : anyLow ? "medium" : "high";
 
     return {
       dosageForm,
-      quantity: draft.total_quantity,
-      quantityUnit: draft.quantity_unit,
-      ingredients,
+      quantity: packQty,
+      quantityUnit: packUnit,
+      unitCount,
+      ingredients: grounded,
       difficultyTags,
       notes: draft.notes ?? "",
       reasoning: draft.reasoning ?? "",
