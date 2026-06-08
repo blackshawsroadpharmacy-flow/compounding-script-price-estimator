@@ -8,6 +8,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { PackagingLine } from "@/lib/pricing";
+import { quoteStore } from "@/state/quote";
 
 export interface CatalogueRow {
   id: string;
