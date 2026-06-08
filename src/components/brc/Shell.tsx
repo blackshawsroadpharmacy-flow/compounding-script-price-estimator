@@ -11,7 +11,9 @@ export function SiteHeader() {
         <nav className="hidden md:flex items-center gap-8 text-sm text-text-secondary">
           <Link to="/" className="hover:text-bark transition-colors">Overview</Link>
           <Link to="/quote/new" className="hover:text-bark transition-colors">New quote</Link>
+          <Link to="/admin/products" className="hover:text-bark transition-colors">Products</Link>
         </nav>
+
         <Link
           to="/quote/new"
           className="inline-flex items-center rounded-full bg-bark text-text-inverted px-5 py-2 text-sm font-medium hover:bg-bark/90 transition-colors"
