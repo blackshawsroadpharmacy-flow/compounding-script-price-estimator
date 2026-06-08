@@ -16,7 +16,7 @@ import {
 } from "@/lib/formulations";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/formulations")({
+export const Route = createFileRoute("/_authenticated/formulations")({
   head: () => ({
     meta: [
       { title: "Formulation library — Burke Road Compounding" },

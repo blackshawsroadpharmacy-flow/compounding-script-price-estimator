@@ -9,7 +9,7 @@ import { Badge } from "@/components/brc/Badge";
 import { Input, Label, Select, Textarea } from "@/components/brc/Field";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/admin/products")({
+export const Route = createFileRoute("/_authenticated/admin/products")({
   head: () => ({
     meta: [
       { title: "Product browser — Burke Road Compounding" },

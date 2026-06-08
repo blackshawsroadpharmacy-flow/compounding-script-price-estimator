@@ -9,7 +9,7 @@ import { StepHistory } from "@/components/quote/StepHistory";
 import { StepFinal } from "@/components/quote/StepFinal";
 import { useQuote } from "@/state/quote";
 
-export const Route = createFileRoute("/quote/new")({
+export const Route = createFileRoute("/_authenticated/quote/new")({
   head: () => ({
     meta: [
       { title: "New quote — Burke Road Compounding Price Estimator" },

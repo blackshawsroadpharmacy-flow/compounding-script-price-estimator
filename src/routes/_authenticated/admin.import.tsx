@@ -12,7 +12,7 @@ import {
   type ParsedRow,
 } from "@/lib/parseDispensingReport";
 
-export const Route = createFileRoute("/admin/import")({
+export const Route = createFileRoute("/_authenticated/admin/import")({
   head: () => ({
     meta: [
       { title: "Import dispensing report — Burke Road Compounding" },

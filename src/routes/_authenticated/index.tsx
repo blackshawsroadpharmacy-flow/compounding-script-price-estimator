@@ -3,7 +3,7 @@ import { PageShell } from "@/components/brc/Shell";
 import { Card } from "@/components/brc/Card";
 import { Badge } from "@/components/brc/Badge";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Burke Road Compounding Price Estimator" },
