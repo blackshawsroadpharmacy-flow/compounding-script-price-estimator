@@ -71,6 +71,60 @@ export type Database = {
         }
         Relationships: []
       }
+      formulations: {
+        Row: {
+          bom: Json
+          created_at: string
+          default_make_minutes: number | null
+          difficulty_tags: Json
+          dosage_form: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          notes: string | null
+          packaging: Json
+          quantity: number | null
+          quantity_unit: string | null
+          source: string
+          times_used: number
+          updated_at: string
+        }
+        Insert: {
+          bom?: Json
+          created_at?: string
+          default_make_minutes?: number | null
+          difficulty_tags?: Json
+          dosage_form?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          notes?: string | null
+          packaging?: Json
+          quantity?: number | null
+          quantity_unit?: string | null
+          source?: string
+          times_used?: number
+          updated_at?: string
+        }
+        Update: {
+          bom?: Json
+          created_at?: string
+          default_make_minutes?: number | null
+          difficulty_tags?: Json
+          dosage_form?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          notes?: string | null
+          packaging?: Json
+          quantity?: number | null
+          quantity_unit?: string | null
+          source?: string
+          times_used?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ingredients_master: {
         Row: {
           canonical_unit: string | null
