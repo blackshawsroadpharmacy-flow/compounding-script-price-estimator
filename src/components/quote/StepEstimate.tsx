@@ -29,6 +29,19 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
   const confidenceTone =
     breakdown.confidence === "high" ? "matched" : breakdown.confidence === "medium" ? "review" : "manual";
 
+  const UNIT_DOSE = new Set(["capsule", "troche", "pessary"]);
+  const perUnit =
+    UNIT_DOSE.has(draft.dosageForm) && draft.quantityUnit === "each" && draft.quantity > 0
+      ? {
+          count: draft.quantity,
+          unitLabel: draft.dosageForm,
+          costPerUnit: breakdown.ingredientsTotal / draft.quantity,
+          pricePerUnit: breakdown.priceIncGst / draft.quantity,
+        }
+      : null;
+
+
+
   return (
     <Card className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-6">
