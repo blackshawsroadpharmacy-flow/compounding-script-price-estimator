@@ -23,6 +23,7 @@ const FORMS = [
   "solution", "suspension", "liquid", "drops", "troche", "pessary",
 ];
 const UNITS = ["mg", "g", "mL", "each"];
+type IngredientRole = "active" | "base" | "excipient";
 const ROLES: IngredientRole[] = ["active", "base", "excipient"];
 
 export function StepInterpretation({
