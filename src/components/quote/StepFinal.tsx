@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Card, WarningCard } from "@/components/brc/Card";
 import { Button } from "@/components/brc/Button";
 import { Badge } from "@/components/brc/Badge";
-import { Textarea } from "@/components/brc/Field";
+import { Input, Label, Textarea } from "@/components/brc/Field";
 import { useQuote } from "@/state/quote";
 import { calculatePrice, formatMoney } from "@/lib/pricing";
 import { useSettings } from "@/hooks/useSettings";
 import { supabase } from "@/integrations/supabase/client";
+import { findSimilarFormulation, saveFormulation, updateFormulation } from "@/lib/formulations";
 
 export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
   const draft = useQuote((s) => s.draft);
