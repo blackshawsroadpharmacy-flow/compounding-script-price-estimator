@@ -9,133 +9,136 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as FormulationsRouteImport } from './routes/formulations'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as QuoteNewRouteImport } from './routes/quote.new'
-import { Route as AdminProductsRouteImport } from './routes/admin.products'
-import { Route as AdminImportRouteImport } from './routes/admin.import'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedFormulationsRouteImport } from './routes/_authenticated/formulations'
+import { Route as AuthenticatedQuoteNewRouteImport } from './routes/_authenticated/quote.new'
+import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin.products'
+import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 
-const FormulationsRoute = FormulationsRouteImport.update({
-  id: '/formulations',
-  path: '/formulations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const QuoteNewRoute = QuoteNewRouteImport.update({
-  id: '/quote/new',
+const AuthenticatedFormulationsRoute =
+  AuthenticatedFormulationsRouteImport.update({
+    id: '/_authenticated/formulations',
+    path: '/formulations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedQuoteNewRoute = AuthenticatedQuoteNewRouteImport.update({
+  id: '/_authenticated/quote/new',
   path: '/quote/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminProductsRoute = AdminProductsRouteImport.update({
-  id: '/admin/products',
-  path: '/admin/products',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminImportRoute = AdminImportRouteImport.update({
-  id: '/admin/import',
-  path: '/admin/import',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedAdminProductsRoute =
+  AuthenticatedAdminProductsRouteImport.update({
+    id: '/_authenticated/admin/products',
+    path: '/admin/products',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminImportRoute =
+  AuthenticatedAdminImportRouteImport.update({
+    id: '/_authenticated/admin/import',
+    path: '/admin/import',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/formulations': typeof FormulationsRoute
-  '/admin/import': typeof AdminImportRoute
-  '/admin/products': typeof AdminProductsRoute
-  '/quote/new': typeof QuoteNewRoute
+  '/formulations': typeof AuthenticatedFormulationsRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/admin/import': typeof AuthenticatedAdminImportRoute
+  '/admin/products': typeof AuthenticatedAdminProductsRoute
+  '/quote/new': typeof AuthenticatedQuoteNewRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/formulations': typeof FormulationsRoute
-  '/admin/import': typeof AdminImportRoute
-  '/admin/products': typeof AdminProductsRoute
-  '/quote/new': typeof QuoteNewRoute
+  '/formulations': typeof AuthenticatedFormulationsRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/admin/import': typeof AuthenticatedAdminImportRoute
+  '/admin/products': typeof AuthenticatedAdminProductsRoute
+  '/quote/new': typeof AuthenticatedQuoteNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/formulations': typeof FormulationsRoute
-  '/admin/import': typeof AdminImportRoute
-  '/admin/products': typeof AdminProductsRoute
-  '/quote/new': typeof QuoteNewRoute
+  '/_authenticated/formulations': typeof AuthenticatedFormulationsRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
+  '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
+  '/_authenticated/quote/new': typeof AuthenticatedQuoteNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/formulations'
+    | '/'
     | '/admin/import'
     | '/admin/products'
     | '/quote/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/formulations' | '/admin/import' | '/admin/products' | '/quote/new'
+  to: '/formulations' | '/' | '/admin/import' | '/admin/products' | '/quote/new'
   id:
     | '__root__'
-    | '/'
-    | '/formulations'
-    | '/admin/import'
-    | '/admin/products'
-    | '/quote/new'
+    | '/_authenticated/formulations'
+    | '/_authenticated/'
+    | '/_authenticated/admin/import'
+    | '/_authenticated/admin/products'
+    | '/_authenticated/quote/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  FormulationsRoute: typeof FormulationsRoute
-  AdminImportRoute: typeof AdminImportRoute
-  AdminProductsRoute: typeof AdminProductsRoute
-  QuoteNewRoute: typeof QuoteNewRoute
+  AuthenticatedFormulationsRoute: typeof AuthenticatedFormulationsRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
+  AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
+  AuthenticatedQuoteNewRoute: typeof AuthenticatedQuoteNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/formulations': {
-      id: '/formulations'
-      path: '/formulations'
-      fullPath: '/formulations'
-      preLoaderRoute: typeof FormulationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/quote/new': {
-      id: '/quote/new'
+    '/_authenticated/formulations': {
+      id: '/_authenticated/formulations'
+      path: '/formulations'
+      fullPath: '/formulations'
+      preLoaderRoute: typeof AuthenticatedFormulationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/quote/new': {
+      id: '/_authenticated/quote/new'
       path: '/quote/new'
       fullPath: '/quote/new'
-      preLoaderRoute: typeof QuoteNewRouteImport
+      preLoaderRoute: typeof AuthenticatedQuoteNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/products': {
-      id: '/admin/products'
+    '/_authenticated/admin/products': {
+      id: '/_authenticated/admin/products'
       path: '/admin/products'
       fullPath: '/admin/products'
-      preLoaderRoute: typeof AdminProductsRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/import': {
-      id: '/admin/import'
+    '/_authenticated/admin/import': {
+      id: '/_authenticated/admin/import'
       path: '/admin/import'
       fullPath: '/admin/import'
-      preLoaderRoute: typeof AdminImportRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  FormulationsRoute: FormulationsRoute,
-  AdminImportRoute: AdminImportRoute,
-  AdminProductsRoute: AdminProductsRoute,
-  QuoteNewRoute: QuoteNewRoute,
+  AuthenticatedFormulationsRoute: AuthenticatedFormulationsRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
+  AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
+  AuthenticatedQuoteNewRoute: AuthenticatedQuoteNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
