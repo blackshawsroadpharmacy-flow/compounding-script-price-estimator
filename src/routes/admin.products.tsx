@@ -527,14 +527,20 @@ function AddIngredientForm({
   );
 }
 
+const SPAN_CLASS: Record<number, string> = {
+  2: "md:col-span-2", 3: "md:col-span-3", 4: "md:col-span-4",
+  5: "md:col-span-5", 6: "md:col-span-6", 7: "md:col-span-7",
+  8: "md:col-span-8", 12: "md:col-span-12",
+};
 function Field({ label, span, children }: { label: string; span: number; children: React.ReactNode }) {
   return (
-    <div className={`md:col-span-${span}`}>
+    <div className={SPAN_CLASS[span] ?? "md:col-span-4"}>
       <Label>{label}</Label>
       {children}
     </div>
   );
 }
+
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Packaging panel
