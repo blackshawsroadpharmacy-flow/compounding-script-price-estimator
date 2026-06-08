@@ -20,6 +20,13 @@ export interface FormulationDraft {
   prepMinutesOverride?: number;
   notes: string;
   aiInterpreted: boolean;
+  /**
+   * Marker for auto-populated packaging. Equal to `${form}|${quantity}` when
+   * `packaging` was set by `applyDefaultPackaging`; cleared to `null` as soon
+   * as the pharmacist edits the packaging list. Used to decide whether a form
+   * change is allowed to overwrite the existing packaging.
+   */
+  packagingAutoMarker: string | null;
 }
 
 const empty: FormulationDraft = {
@@ -34,6 +41,7 @@ const empty: FormulationDraft = {
   difficultyTags: [{ tag: "standard", multiplier: 1.0 }],
   notes: "",
   aiInterpreted: false,
+  packagingAutoMarker: null,
 };
 
 interface QuoteState {
