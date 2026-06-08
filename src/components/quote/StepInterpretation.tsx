@@ -365,10 +365,20 @@ export function StepInterpretation({
         </div>
       )}
 
-      {status === "ready" && draft && draft.warnings.length > 0 && (
+      {status === "ready" && draft && (errorCount > 0 || warnCount > 0 || draft.warnings.length > 0) && (
         <WarningCard>
+          <div className="text-sm font-medium text-bark mb-1">
+            {errorCount > 0
+              ? `${errorCount} issue${errorCount === 1 ? "" : "s"} to fix before continuing`
+              : `${warnCount} sanity check${warnCount === 1 ? "" : "s"} to review`}
+          </div>
           <ul className="list-disc pl-5 space-y-1 text-sm">
-            {draft.warnings.map((w, i) => <li key={i}>{w}</li>)}
+            {aggregateIssues.map((i, idx) => (
+              <li key={`a-${idx}`} className={i.severity === "error" ? "text-[#7a2218]" : ""}>
+                {i.message}
+              </li>
+            ))}
+            {draft.warnings.map((w, i) => <li key={`m-${i}`}>{w}</li>)}
           </ul>
         </WarningCard>
       )}
@@ -381,7 +391,7 @@ export function StepInterpretation({
           )}
           <Button
             variant="primary"
-            disabled={status !== "ready" || !draft || draft.ingredients.length === 0}
+            disabled={status !== "ready" || !draft || errorCount > 0}
             onClick={accept}
           >
             Accept & continue
