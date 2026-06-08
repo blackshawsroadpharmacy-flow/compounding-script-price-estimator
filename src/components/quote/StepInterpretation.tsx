@@ -563,6 +563,23 @@ function EditableRow({
         value={ing.note ?? ""}
         onChange={(e) => onChange({ note: e.target.value || null })}
       />
+
+      {issues.length > 0 && (
+        <ul className="space-y-1 text-xs">
+          {issues.map((i, idx) => (
+            <li
+              key={idx}
+              className={
+                "flex items-start gap-1.5 " +
+                (i.severity === "error" ? "text-[#7a2218]" : "text-text-secondary")
+              }
+            >
+              <span aria-hidden>{i.severity === "error" ? "●" : "▲"}</span>
+              <span>{i.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
