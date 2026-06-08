@@ -5,7 +5,7 @@ import { Button } from "@/components/brc/Button";
 import { Badge, type BadgeTone } from "@/components/brc/Badge";
 import { Input, Label, Select, Textarea } from "@/components/brc/Field";
 import { useQuote } from "@/state/quote";
-import type { BomLine, IngredientRole } from "@/lib/pricing";
+import type { BomLine } from "@/lib/pricing";
 import {
   interpretPrescription,
   type InterpretedFormulation,
