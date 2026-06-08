@@ -92,6 +92,13 @@ export function StepEstimate({ onNext, onBack }: { onNext: () => void; onBack: (
               <span>Subtotal</span>
               <span className="tabular-nums">{formatMoney(breakdown.ingredientsTotal)}</span>
             </li>
+            {perUnit && (
+              <li className="flex items-center justify-between text-text-secondary">
+                <span>per {perUnit.unitLabel}</span>
+                <span className="tabular-nums">{formatMoney(perUnit.costPerUnit)}</span>
+              </li>
+            )}
+
           </ul>
         </div>
 
