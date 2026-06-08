@@ -16,6 +16,55 @@ export function StepFinal({ onBack, onSaved }: { onBack: () => void; onSaved: ()
   const { settings } = useSettings();
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [savingFormulation, setSavingFormulation] = useState(false);
+  const [savedFormulationId, setSavedFormulationId] = useState<string | null>(null);
+  const [formulationName, setFormulationName] = useState("");
+  const [showSaveFormulation, setShowSaveFormulation] = useState(false);
+
+  const openSaveFormulation = () => {
+    const guess = draft.bom
+      .filter((l) => l.role === "active")
+      .map((l) => `${l.name}${l.quantity ? ` ${l.quantity}${l.unit}` : ""}`)
+      .filter(Boolean)
+      .join(", ");
+    const suffix = draft.dosageForm ? ` ${draft.dosageForm}` : "";
+    const qty = draft.quantity ? ` ${draft.quantity}${draft.quantityUnit}` : "";
+    setFormulationName(guess ? `${guess}${suffix}${qty}` : draft.prescriptionText.slice(0, 80));
+    setShowSaveFormulation(true);
+  };
+
+  const saveAsFormulation = async () => {
+    if (!formulationName.trim()) return toast.error("Give it a name first");
+    setSavingFormulation(true);
+    try {
+      const existing = await findSimilarFormulation(formulationName, draft.dosageForm);
+      if (existing) {
+        const ok = confirm(
+          `A formulation called "${existing.name}" (${existing.dosage_form}) already exists. ` +
+            `Update it with the current BOM as a new version?`,
+        );
+        if (ok) {
+          await updateFormulation(existing.id, {
+            name: formulationName,
+            draft,
+            source: "pharmacist",
+          });
+          setSavedFormulationId(existing.id);
+          toast.success("Existing formulation updated");
+          setShowSaveFormulation(false);
+          return;
+        }
+      }
+      const id = await saveFormulation({ name: formulationName, draft, source: "pharmacist" });
+      setSavedFormulationId(id);
+      toast.success("Saved to formulation library");
+      setShowSaveFormulation(false);
+    } catch (e) {
+      toast.error("Could not save: " + (e as Error).message);
+    } finally {
+      setSavingFormulation(false);
+    }
+  };
 
   const breakdown = useMemo(
     () =>
